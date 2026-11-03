@@ -1,0 +1,32 @@
+Setters:
+- Cal 
+- Eloise
+- Fernando
+- Idris
+
+Outsides:
+- Tarik
+- Abdulaziz
+- Abigail
+- Lewin
+- Arefin
+- Isaac
+- Sid
+- Aziz
+- Ben
+- Cy
+- Bruno
+
+Middles:
+- Charlie
+- Matteo
+
+Opposites:
+- Yuze
+- Ben Hardwick
+- Ryan Lew
+
+Liberos:
+- Gabriel
+- Fernando Cross
+- Ryan Lew

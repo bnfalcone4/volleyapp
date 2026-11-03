@@ -1,0 +1,30 @@
+Setters:
+- Eloise OK
+- Fernando NOK
+- Idris OK
+Outsides: 
+- Jack 
+- Tarik Gulec NOK
+- Abdulaziz NOK
+- Abigail OK
+- Lewin NOK
+- Arefin OUT
+- Isaac OK
+- Sid OK
+- Aziz OUT
+- Ben OUT
+- Cy NOK
+- Bruno OK
+Middles:
+- Lukian OUT
+- Wyatt OUT
+- Charlie OUT
+- Matteo Booth NOK
+Liberos:
+- Ryan Lew OUT
+- Julian NOK
+- Gabriel Branzei OK
+- Fernando Cross NOK
+Opposites:
+- Yuze Zhang NOK
+- Ben Hardwick OK
