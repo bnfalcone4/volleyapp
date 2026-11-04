@@ -4,6 +4,14 @@ import sys
 from pathlib import Path
 
 EVENT_CAPACITY = 21
+EVENT_POSITIONS = {
+    'setter': 3,
+    'outside': 6,
+    'middle': 6,
+    'opposite': 3,
+    'libero': 3,
+    'unknown': EVENT_CAPACITY,
+}
 FLEXIBLE_LIMITS = {
     'setter': (2, 3),
     'outside': (4, 9),
@@ -43,6 +51,31 @@ def assign_position(player, preferences, positions, assignment, waiting):
     positions['unknown'] -= 1
 
     return assignment, positions, waiting
+
+
+def ranked_assignments(players):
+    positions = EVENT_POSITIONS.copy()
+    assignment = {}
+    waiting = {}
+    for player, preferences in players.items():
+        assignment, positions, waiting = assign_position(
+            player, preferences, positions, assignment, waiting
+        )
+    return assignment, waiting
+
+
+def assign_ranked_players(players):
+    assignment, waiting = ranked_assignments(players)
+    for number, (player, position) in enumerate(assignment.items(), start=1):
+        rank = players[player].get(position)
+        score = '' if rank is None else rank
+        print(f'{number}. {player.split()[0]} - {position} - {score}')
+
+    if waiting:
+        print('Waiting:')
+        for player, preferences in waiting.items():
+            print(player.split()[0], '-'.join(preferences))
+    return assignment, waiting
 
 
 def is_woman(name):
@@ -296,7 +329,17 @@ def sort_signups(df, print_frames=False):
 
 def main():
     parser = argparse.ArgumentParser(description='Assign players to volleyball positions.')
-    parser.add_argument('csv_file', help='Spond sign-up CSV file')
+    parser.add_argument('csv_file', nargs='?', help='Spond sign-up CSV file')
+    parser.add_argument(
+        '--preferences-json',
+        help='Use cached Spond preferences from check_spond/upcoming_events.json.',
+    )
+    parser.add_argument(
+        '--event-index',
+        type=int,
+        default=0,
+        help='Zero-based event index in the preferences JSON file (default: 0).',
+    )
     parser.add_argument(
         '--mode',
         choices=('ranked', 'flexible', 'hungarian'),
@@ -309,6 +352,20 @@ def main():
         help='CSV with per-total minimums used by flexible mode',
     )
     args = parser.parse_args()
+
+    if args.preferences_json:
+        if args.csv_file:
+            parser.error('Do not provide csv_file together with --preferences-json.')
+        if args.mode != 'ranked':
+            parser.error('--preferences-json currently supports ranked mode only.')
+        from check_spond.check_spond import load_players_from_json
+
+        players = load_players_from_json(args.preferences_json, args.event_index)
+        assign_ranked_players(players)
+        return
+
+    if not args.csv_file:
+        parser.error('csv_file is required unless --preferences-json is provided.')
     df = pd.read_csv(args.csv_file)
 
     if args.mode in ('flexible', 'hungarian'):
@@ -319,8 +376,6 @@ def main():
         else:
             run_hungarian(sort_signups(df), minimums)
         return
-
-    EVENT_POSITIONS = {'setter': 3, 'outside': 6, 'middle': 6, 'opposite': 3, 'libero': 3, 'unknown': EVENT_CAPACITY}
 
     setter_col = PREFERENCE_COLUMNS['setter']
     outside_col = PREFERENCE_COLUMNS['outside']

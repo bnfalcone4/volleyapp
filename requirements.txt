@@ -1,2 +1,5 @@
 pandas
 munkres
+streamlit
+spond>=1.2.1
+python-dotenv
