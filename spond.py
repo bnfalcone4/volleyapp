@@ -1,14 +1,22 @@
 import pandas as pd
 import argparse
 import sys
+from pathlib import Path
 
 EVENT_CAPACITY = 21
-FLEXIBLE_LIMITS = {'setter': (2, 3), 'outside': (4, 9), 'middle': (2, 6), 'libero': (2, 3)}
+FLEXIBLE_LIMITS = {
+    'setter': (2, 3),
+    'outside': (4, 9),
+    'middle': (2, 6),
+    'opposite': (2, 3),
+    'libero': (2, 3),
+}
 
 PREFERENCE_COLUMNS = {
     'setter': 'Playing as setter preference rank from 1 (best) to 5 (worst)',
     'outside': 'Outside rank from 1 to 5',
     'middle': 'Middle rank from 1 to 5',
+    'opposite': 'Opposite rank from 1 to 5',
     'libero': 'Libero rank from 1 to 5',
 }
 
@@ -45,19 +53,13 @@ def is_woman(name):
     return 0
 
 
-def assign_flexible(players):
-    minimum_total = sum(minimum for minimum, _ in FLEXIBLE_LIMITS.values())
-    if len(players) < minimum_total:
-        raise ValueError(
-            f'Flexible mode needs at least {minimum_total} sign-ups to meet all minimums; '
-            f'only {len(players)} were provided.'
-        )
-
+def assign_flexible(players, minimums):
     assigned_players = players[:EVENT_CAPACITY]
+    minimum_total = sum(minimums.values())
     if len(assigned_players) < minimum_total:
         raise ValueError(
-            f'Flexible mode needs at least {minimum_total} sign-ups to meet all minimums; '
-            f'only {len(assigned_players)} can be assigned.'
+            f'The configured position minimums total {minimum_total}, but only '
+            f'{len(assigned_players)} players can be assigned.'
         )
 
     counts = {position: 0 for position in FLEXIBLE_LIMITS}
@@ -78,9 +80,16 @@ def assign_flexible(players):
             counts[position] += 1
             minimums_still_needed = sum(
                 max(0, minimum - counts[role])
-                for role, (minimum, _) in FLEXIBLE_LIMITS.items()
+                for role, minimum in minimums.items()
             )
-            if minimums_still_needed <= remaining_players:
+            available_slots = sum(
+                maximum - counts[role]
+                for role, (_, maximum) in FLEXIBLE_LIMITS.items()
+            )
+            if (
+                minimums_still_needed <= remaining_players
+                and remaining_players <= available_slots
+            ):
                 rank = preferences.get(position)
                 assignments.append((name, position, rank))
                 break
@@ -93,7 +102,113 @@ def assign_flexible(players):
     return assignments, players[EVENT_CAPACITY:]
 
 
-def run_flexible(df):
+def assign_hungarian(players, minimums):
+    try:
+        from munkres import Munkres
+    except ImportError as error:
+        raise RuntimeError(
+            'Hungarian mode requires the munkres package. Install it with '
+            '`python -m pip install munkres`.'
+        ) from error
+
+    assigned_players = players[:EVENT_CAPACITY]
+    player_count = len(assigned_players)
+    minimum_total = sum(minimums.values())
+    maximum_total = sum(maximum for _, maximum in FLEXIBLE_LIMITS.values())
+    if not minimum_total <= player_count <= maximum_total:
+        raise ValueError(
+            f'Position limits cannot assign {player_count} players; the configured '
+            f'minimums total {minimum_total} and maximums total {maximum_total}.'
+        )
+
+    slots = []
+    for position, (minimum, maximum) in FLEXIBLE_LIMITS.items():
+        slots.extend((position, True) for _ in range(minimums[position]))
+        slots.extend((position, False) for _ in range(maximum - minimums[position]))
+
+    tie_break_max = 6 * sum(range(1, player_count + 1))
+    preference_scale = tie_break_max + 1
+    largest_player_cost = 6 * preference_scale + 6 * player_count
+    mandatory_slot_penalty = largest_player_cost * (len(slots) + 1)
+
+    costs = []
+    for index, (_, preferences) in enumerate(assigned_players):
+        order_weight = player_count - index
+        costs.append([
+            (preferences.get(position, 6) * preference_scale)
+            + (preferences.get(position, 6) * order_weight)
+            for position, _ in slots
+        ])
+
+    dummy_count = len(slots) - player_count
+    costs.extend([
+        [
+            mandatory_slot_penalty if mandatory else 0
+            for _, mandatory in slots
+        ]
+        for _ in range(dummy_count)
+    ])
+
+    indexes = Munkres().compute(costs)
+    indexes.sort()
+    assignments = []
+    for row_index, slot_index in indexes:
+        if row_index >= player_count:
+            continue
+        name, preferences = assigned_players[row_index]
+        position = slots[slot_index][0]
+        assignments.append((name, position, preferences.get(position)))
+
+    return assignments, players[EVENT_CAPACITY:]
+
+
+def load_minimums(csv_path, total):
+    minimums_df = pd.read_csv(csv_path)
+    required_columns = {'total', *FLEXIBLE_LIMITS}
+    missing_columns = required_columns - set(minimums_df.columns)
+    if missing_columns:
+        raise ValueError(
+            f'{csv_path} is missing required columns: {", ".join(sorted(missing_columns))}'
+        )
+
+    totals = pd.to_numeric(minimums_df['total'], errors='coerce')
+    matching_rows = minimums_df.loc[totals == total]
+    if len(matching_rows) != 1:
+        raise ValueError(
+            f'{csv_path} must contain exactly one row for total={total}; '
+            f'found {len(matching_rows)}.'
+        )
+
+    row = matching_rows.iloc[0]
+    minimums = {}
+    for position in FLEXIBLE_LIMITS:
+        value = pd.to_numeric(row[position], errors='coerce')
+        if pd.isna(value) or value < 0 or not float(value).is_integer():
+            raise ValueError(
+                f'{csv_path} has an invalid minimum for {position} at total={total}.'
+            )
+        minimum = int(value)
+        if minimum > FLEXIBLE_LIMITS[position][1]:
+            raise ValueError(
+                f'{csv_path} sets {position} minimum to {minimum}, above its maximum '
+                f'of {FLEXIBLE_LIMITS[position][1]}.'
+            )
+        minimums[position] = minimum
+
+    minimum_total = sum(minimums.values())
+    if minimum_total > total:
+        raise ValueError(
+            f'{csv_path} minimums for total={total} sum to {minimum_total}, '
+            f'which exceeds the total.'
+        )
+    if sum(maximum for _, maximum in FLEXIBLE_LIMITS.values()) < total:
+        raise ValueError(
+            f'{csv_path} position maximums cannot accommodate total={total}.'
+        )
+    return minimums
+
+
+def run_flexible(df, minimums):
     players = []
     for _, row in df.iterrows():
         preferences = {}
@@ -103,7 +218,7 @@ def run_flexible(df):
                 preferences[position] = int(rank)
         players.append((row['Name'], preferences))
 
-    assignments, waiting = assign_flexible(players)
+    assignments, waiting = assign_flexible(players, minimums)
     counts = {position: 0 for position in FLEXIBLE_LIMITS}
 
     print('Flexible assignments (signup order):')
@@ -113,7 +228,8 @@ def run_flexible(df):
         print(f'{number}. {name} - {position} - {score}')
 
     print('\nPosition totals:')
-    for position, (minimum, maximum) in FLEXIBLE_LIMITS.items():
+    for position, (_, maximum) in FLEXIBLE_LIMITS.items():
+        minimum = minimums[position]
         print(f'{position}: {counts[position]} (minimum {minimum}, maximum {maximum})')
 
     if waiting:
@@ -122,20 +238,86 @@ def run_flexible(df):
             print(name)
 
 
+def run_hungarian(df, minimums):
+    players = []
+    for _, row in df.iterrows():
+        preferences = {}
+        for position, column in PREFERENCE_COLUMNS.items():
+            rank = row[column]
+            if pd.notna(rank) and 1 <= rank <= 5:
+                preferences[position] = int(rank)
+        players.append((row['Name'], preferences))
+
+    assignments, waiting = assign_hungarian(players, minimums)
+    counts = {position: 0 for position in FLEXIBLE_LIMITS}
+
+    print('Hungarian assignments (preference-optimized):')
+    for number, (name, position, rank) in enumerate(assignments, start=1):
+        counts[position] += 1
+        score = rank if rank is not None else 'no preference'
+        print(f'{number}. {name} - {position} - {score}')
+
+    print('\nPosition totals:')
+    for position, (_, maximum) in FLEXIBLE_LIMITS.items():
+        print(
+            f'{position}: {counts[position]} '
+            f'(minimum {minimums[position]}, maximum {maximum})'
+        )
+
+    if waiting:
+        print('\nWaiting:')
+        for name, _ in waiting:
+            print(name)
+
+
+def sort_signups(df, print_frames=False):
+    df = df.copy()
+    df['Order'] = range(1, len(df) + 1)
+    df['Woman'] = df['Name'].apply(is_woman)
+    df['Sum_preferences'] = df[list(PREFERENCE_COLUMNS.values())].sum(axis=1)
+    df['Sum_preferences'] = df['Sum_preferences'].fillna(0)
+    df['Missing'] = (df['Sum_preferences'] < 1).astype(int)
+    df['Waiting'] = (df['Order'] > EVENT_CAPACITY).astype(int)
+    if print_frames:
+        print(df)
+
+    df = df.sort_values(
+        ['Waiting', 'Woman', 'Missing', 'Order'],
+        ascending=[True, False, True, True],
+        na_position='first',
+    )
+    if print_frames:
+        print(df)
+    df[list(PREFERENCE_COLUMNS.values())] = df[list(PREFERENCE_COLUMNS.values())].fillna(999)
+    if print_frames:
+        print(df)
+    return df
+
+
 def main():
     parser = argparse.ArgumentParser(description='Assign players to volleyball positions.')
     parser.add_argument('csv_file', help='Spond sign-up CSV file')
     parser.add_argument(
         '--mode',
-        choices=('ranked', 'flexible'),
+        choices=('ranked', 'flexible', 'hungarian'),
         default='ranked',
-        help='Use flexible position limits and signup-order assignment',
+        help='Use ranked, signup-order flexible, or preference-optimized assignment',
+    )
+    parser.add_argument(
+        '--minimums-csv',
+        default=str(Path(__file__).with_name('min_positions.csv')),
+        help='CSV with per-total minimums used by flexible mode',
     )
     args = parser.parse_args()
     df = pd.read_csv(args.csv_file)
 
-    if args.mode == 'flexible':
-        run_flexible(df)
+    if args.mode in ('flexible', 'hungarian'):
+        total = min(len(df), EVENT_CAPACITY)
+        minimums = load_minimums(args.minimums_csv, total)
+        if args.mode == 'flexible':
+            run_flexible(df, minimums)
+        else:
+            run_hungarian(sort_signups(df), minimums)
         return
 
     EVENT_POSITIONS = {'setter': 3, 'outside': 6, 'middle': 6, 'opposite': 3, 'libero': 3, 'unknown': EVENT_CAPACITY}
@@ -143,25 +325,10 @@ def main():
     setter_col = PREFERENCE_COLUMNS['setter']
     outside_col = PREFERENCE_COLUMNS['outside']
     middle_col = PREFERENCE_COLUMNS['middle']
-    opposite_col = 'Opposite rank from 1 to 5'
+    opposite_col = PREFERENCE_COLUMNS['opposite']
     libero_col = PREFERENCE_COLUMNS['libero']
 
-    df['Order'] = range(1, len(df)+1)
-    df['Woman'] = df['Name'].apply(is_woman)
-    df['Sum_preferences'] = df[[setter_col, outside_col, middle_col, opposite_col, libero_col]].sum(axis=1)
-    df['Sum_preferences'] = df['Sum_preferences'].fillna(0)
-    df['Missing'] = (df['Sum_preferences'] < 1).astype(int)
-    df['Waiting'] = (df['Order'] > EVENT_CAPACITY).astype(int)
-
-    print(df)
-    df = df.sort_values(
-        ['Waiting', 'Woman', 'Missing', 'Order'],
-        ascending=[True, False, True, True],
-        na_position='first',
-    )
-    print(df)
-    df = df.fillna(999)
-    print(df)
+    df = sort_signups(df, print_frames=True)
 
     players = {}
     for _, row in df.iterrows():
