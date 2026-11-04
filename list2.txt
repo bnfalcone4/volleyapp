@@ -1,0 +1,44 @@
+setter:
+1. Eloise Vint
+2. Idris Hassan
+3. Dylan Low
+
+outside:
+1. abigail Osoba
+2. Bruno Falcone
+3. Tarik Gulec
+4. Cyrus Pullinger
+5. Jie Zhou
+6. Yuze Zhang
+
+middle:
+1. Matteo Booth
+2. Mohammed Alyafei
+3. Malachi Al-Radhi
+4. Kodi Chapman-Bright
+5. Theo Marchant
+6. Ryan Broomhead
+
+opposite:
+1. Abdulaziz Aldawsari
+2. Ben Hardwick
+3. Sid Stone
+
+libero:
+1. Rama Alrawi
+2. Julian D’agostino
+3. Gabriel Branzei
+
+unknown:
+
+Waiting:
+Abdulaziz Aldawsari outside
+Ben Hardwick outside
+Sid Stone outside
+Dylan Low outside
+Mohammed Alyafei outside-setter-opposite-libero
+Malachi Al-Radhi opposite
+Ryan Broomhead outside
+Qihao Li setter-opposite-outside-middle-libero
+Zach Stubbs 
+
