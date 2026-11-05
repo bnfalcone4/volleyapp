@@ -198,6 +198,11 @@ def display_assignments(
     for rank, total in rank_totals.items():
         write(f'Rank {rank}: {total}')
     write(f'Total: {rank_total}')
+    ranked_player_count = sum(rank_totals.values())
+    average_rank = (
+        rank_total / ranked_player_count if ranked_player_count else 0
+    )
+    write(f'Average: {average_rank:.2f}')
 
 
 def edit_event_attendance(event, players, assignment_module, streamlit):
@@ -365,7 +370,7 @@ def streamlit_main():
 
     fetch_module = load_fetch_module()
     st.set_page_config(page_title='VolleyApp', page_icon='🏐')
-    st.title('Volleyball sign-ups')
+    st.title('VolleyApp 🏐')
     st.write('Upcoming open events and position assignments from live Spond data.')
 
     try:
