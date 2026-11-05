@@ -1,3 +1,9 @@
+"""Display Spond event assignments in a local or Streamlit interface.
+
+The app fetches upcoming events, normalizes assignment results for the three
+supported modes, and renders assignments, waiting lists, and position totals.
+"""
+
 import asyncio
 import hmac
 import importlib.util
@@ -7,7 +13,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
+ASSIGNMENT_MODES = ('ranked', 'flexible', 'hungarian')
+
+
 def load_fetch_module():
+    """Load and return the Spond event-fetching module beside this file.
+
+    Returns:
+        The loaded module containing event fetching and cache functions.
+
+    Raises:
+        ImportError: If the fetch module cannot be found or loaded.
+    """
     fetch_path = Path(__file__).with_name('check_spond.py')
     spec = importlib.util.spec_from_file_location('_spond_fetch', fetch_path)
     if spec is None or spec.loader is None:
@@ -19,6 +36,14 @@ def load_fetch_module():
 
 
 def load_assignment_module():
+    """Load and return the repository's volleyball assignment module.
+
+    Returns:
+        The loaded module containing assignment algorithms and position limits.
+
+    Raises:
+        ImportError: If the assignment module cannot be found or loaded.
+    """
     assignment_path = Path(__file__).resolve().parents[1] / 'spond.py'
     spec = importlib.util.spec_from_file_location(
         '_volley_assignment',
@@ -33,6 +58,16 @@ def load_assignment_module():
 
 
 def first_name_label(full_name, counts, seen):
+    """Return a first-name label, disambiguating duplicate first names.
+
+    Args:
+        full_name: Player's full name.
+        counts: Mapping of first names to their occurrence counts.
+        seen: Mutable mapping tracking labels already emitted in this output.
+
+    Returns:
+        The first name, with an occurrence number when that name is duplicated.
+    """
     first_name = full_name.split()[0] if full_name.split() else 'Unknown'
     seen[first_name] = seen.get(first_name, 0) + 1
     if counts[first_name] > 1:
@@ -40,52 +75,195 @@ def first_name_label(full_name, counts, seen):
     return first_name
 
 
-def display_event(event, assignment_module, streamlit=None):
-    assignment, waiting = assignment_module.ranked_assignments(event['players'])
-    start = datetime.fromisoformat(event['startTimestamp'].replace('Z', '+00:00'))
-    end = datetime.fromisoformat(event['endTimestamp'].replace('Z', '+00:00'))
-    start = start.astimezone(timezone.utc)
-    end = end.astimezone(timezone.utc)
+def calculate_assignments(mode, players, assignment_module):
+    """Run one assignment mode and return its results and position limits.
 
+    Args:
+        mode: Assignment algorithm name: ``ranked``, ``flexible``, or
+            ``hungarian``.
+        players: Mapping of full player names to position preference ranks.
+        assignment_module: Loaded module providing assignment algorithms and
+            position-limit configuration.
+
+    Returns:
+        A pair of the algorithm's (assignments, waiting list) result and a
+        mapping of positions to (minimum, maximum) counts.
+
+    Raises:
+        OSError, RuntimeError, ValueError: If limits cannot be loaded, the
+            selected algorithm cannot run, or ``mode`` is unsupported.
+    """
+    if mode == 'ranked':
+        limits = {
+            position: (capacity, capacity)
+            for position, capacity in assignment_module.EVENT_POSITIONS.items()
+            if position != 'unknown'
+        }
+        return assignment_module.ranked_assignments(players), limits
+
+    total = min(len(players), assignment_module.EVENT_CAPACITY)
+    minimums_path = Path(__file__).resolve().parents[1] / 'min_positions.csv'
+    minimums = assignment_module.load_minimums(minimums_path, total)
+    signup_order = list(players.items())
+    limits = {
+        position: (minimums[position], maximum)
+        for position, (_, maximum) in assignment_module.FLEXIBLE_LIMITS.items()
+    }
+    if mode == 'flexible':
+        return assignment_module.assign_flexible(signup_order, minimums), limits
+    if mode == 'hungarian':
+        return assignment_module.assign_hungarian(signup_order, minimums), limits
+    raise ValueError(f'Unsupported assignment mode: {mode}.')
+
+
+def assignment_rows(mode, result, players):
+    """Normalize an algorithm result into assignment and waiting-list rows.
+
+    Args:
+        mode: Assignment algorithm name.
+        result: Pair returned by the selected assignment algorithm.
+        players: Mapping of full player names to position preference ranks.
+
+    Returns:
+        A pair of assignment rows (name, position, rank) and waiting rows
+        (name, preferred positions).
+    """
+    assignments, waiting = result
+    if mode == 'ranked':
+        rows = [
+            (name, position, players[name].get(position))
+            for name, position in assignments.items()
+        ]
+        waiting_rows = list(waiting.items())
+    else:
+        rows = assignments
+        waiting_rows = waiting
+    return rows, waiting_rows
+
+
+def display_assignments(assignments, waiting, limits, players, streamlit=None):
+    """Render assignments, waiting-list preferences, and position totals.
+
+    Args:
+        assignments: Iterable of (name, position, preference rank) rows.
+        waiting: Iterable of (name, preferred positions) rows.
+        limits: Mapping of positions to (minimum, maximum) counts.
+        players: Mapping of all full player names to their preferences, used
+            to disambiguate duplicate first names.
+        streamlit: Optional Streamlit API object. When omitted, output is
+            printed to the terminal.
+
+    Returns:
+        None. Writes the result to Streamlit or standard output.
+    """
     counts = {}
-    for full_name in event['players']:
+    for full_name in players:
         first_name = full_name.split()[0] if full_name.split() else 'Unknown'
         counts[first_name] = counts.get(first_name, 0) + 1
     seen = {}
 
+    write = streamlit.write if streamlit else print
+    markdown = streamlit.markdown if streamlit else print
+    markdown('**Assignments**' if streamlit else 'Assignments:')
+    for index, (full_name, position, rank) in enumerate(assignments, start=1):
+        first_name = first_name_label(full_name, counts, seen)
+        rank_text = f' (rank {rank})' if rank is not None else ''
+        separator = ' — ' if streamlit else ' - '
+        write(f'{index}. {first_name}{separator}{position}{rank_text}')
+
+    markdown('**Waiting list**' if streamlit else 'Waiting list:')
+    if waiting:
+        for full_name, preferences in waiting:
+            first_name = first_name_label(full_name, counts, seen)
+            preference_text = f' — {", ".join(preferences)}' if preferences else ''
+            write(f'{first_name}{preference_text}')
+    else:
+        write('Nobody waiting.')
+
+    markdown('**Position totals**' if streamlit else 'Position totals:')
+    for position, (minimum, maximum) in limits.items():
+        total = sum(row[1] == position for row in assignments)
+        write(f'{position}: {total} (minimum {minimum}, maximum {maximum})')
+
+
+def display_event(event, assignment_module, streamlit=None):
+    """Calculate and display all assignment modes for one event.
+
+    Args:
+        event: Event mapping with heading, start/end timestamps, and a
+            ``players`` preference mapping.
+        assignment_module: Loaded module providing assignment algorithms.
+        streamlit: Optional Streamlit API object. When omitted, output is
+            printed to the terminal.
+
+    Returns:
+        None. Displays the event's assignments and reports per-mode calculation
+        errors through the selected output interface.
+    """
+    start = datetime.fromisoformat(event['startTimestamp'].replace('Z', '+00:00'))
+    end = datetime.fromisoformat(event['endTimestamp'].replace('Z', '+00:00'))
+    start = start.astimezone(timezone.utc)
+    end = end.astimezone(timezone.utc)
     title = event.get('heading') or 'Untitled event'
     date_line = f'{start:%Y-%m-%d} · {start:%H:%M}–{end:%H:%M} UTC'
+
     if streamlit:
         streamlit.subheader(title)
         streamlit.caption(date_line)
-        streamlit.markdown('**Assignments**')
-        for index, (full_name, position) in enumerate(assignment.items(), start=1):
-            first_name = first_name_label(full_name, counts, seen)
-            rank = event['players'][full_name].get(position)
-            rank_text = f' (rank {rank})' if rank is not None else ''
-            streamlit.write(f'{index}. {first_name} — {position}{rank_text}')
-        if waiting:
-            streamlit.markdown('**Waiting list**')
-            for full_name, preferences in waiting.items():
-                first_name = first_name_label(full_name, counts, seen)
-                streamlit.write(f'{first_name} — {", ".join(preferences)}')
+        tabs = streamlit.tabs([mode.title() for mode in ASSIGNMENT_MODES])
+        for mode, tab in zip(ASSIGNMENT_MODES, tabs):
+            with tab:
+                try:
+                    result, limits = calculate_assignments(
+                        mode, event['players'], assignment_module
+                    )
+                except (OSError, RuntimeError, ValueError) as error:
+                    streamlit.error(f'Could not calculate {mode} assignments: {error}')
+                    continue
+                assignments, waiting = assignment_rows(
+                    mode, result, event['players']
+                )
+                display_assignments(
+                    assignments,
+                    waiting,
+                    limits,
+                    event['players'],
+                    streamlit=streamlit,
+                )
         return
 
     print(f'\n{title}')
     print(date_line)
-    for index, (full_name, position) in enumerate(assignment.items(), start=1):
-        first_name = first_name_label(full_name, counts, seen)
-        rank = event['players'][full_name].get(position)
-        rank_text = f' (rank {rank})' if rank is not None else ''
-        print(f'{index}. {first_name} - {position}{rank_text}')
-    if waiting:
-        print('Waiting list:')
-        for full_name, preferences in waiting.items():
-            first_name = first_name_label(full_name, counts, seen)
-            print(f'{first_name} - {", ".join(preferences)}')
+    for mode in ASSIGNMENT_MODES:
+        print(f'\n{mode.title()}')
+        try:
+            result, limits = calculate_assignments(
+                mode, event['players'], assignment_module
+            )
+        except (OSError, RuntimeError, ValueError) as error:
+            print(f'Could not calculate {mode} assignments: {error}')
+            continue
+        assignments, waiting = assignment_rows(mode, result, event['players'])
+        display_assignments(
+            assignments,
+            waiting,
+            limits,
+            event['players'],
+        )
 
 
 def local_main():
+    """Fetch upcoming Spond events and print every assignment mode.
+
+    Reads Spond credentials from the repository-root ``.env``, fetches events,
+    saves the event cache, and prints assignments in the terminal.
+
+    Returns:
+        None.
+
+    Raises:
+        SystemExit: If required credentials are missing.
+    """
     from dotenv import load_dotenv
 
     load_dotenv(Path(__file__).resolve().parents[1] / '.env')
@@ -113,6 +291,14 @@ def local_main():
 
 
 def streamlit_main():
+    """Run the password-protected Streamlit interface for Spond events.
+
+    Reads app and Spond credentials from Streamlit secrets or environment
+    variables, fetches events on request, and renders the selected event.
+
+    Returns:
+        None. Writes UI content and authentication state through Streamlit.
+    """
     import streamlit as st
 
     fetch_module = load_fetch_module()
@@ -176,6 +362,14 @@ def streamlit_main():
         return
 
     def event_label(event):
+        """Format an event's heading and UTC start time for the selector.
+
+        Args:
+            event: Event mapping with an optional heading and start timestamp.
+
+        Returns:
+            A display label containing the event title and UTC date and time.
+        """
         start = datetime.fromisoformat(event['startTimestamp'].replace('Z', '+00:00'))
         return f"{event.get('heading') or 'Untitled event'} — {start:%Y-%m-%d %H:%M} UTC"
 

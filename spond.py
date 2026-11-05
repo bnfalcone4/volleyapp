@@ -1,3 +1,11 @@
+"""Assign Spond sign-ups to volleyball positions.
+
+The module supports ranked, signup-order flexible, and Hungarian assignments.
+Its command-line interface accepts either a Spond CSV export or cached event
+preferences; assignment helpers return player assignments and waiting lists,
+while the ``run_*`` helpers and CLI print results.
+"""
+
 import pandas as pd
 import argparse
 import sys
@@ -29,6 +37,18 @@ PREFERENCE_COLUMNS = {
 }
 
 def assign_position(player, preferences, positions, assignment, waiting):
+    """Assign one player using ranked preferences and update assignment state.
+
+    Args:
+        player: Player's name.
+        preferences: Ordered mapping of position names to preference ranks.
+        positions: Mutable mapping of positions to remaining capacities.
+        assignment: Mutable mapping of already-assigned players to positions.
+        waiting: Mutable mapping of players to positions that were full.
+
+    Returns:
+        The updated ``(assignment, positions, waiting)`` mappings.
+    """
 
     if len(assignment) >= EVENT_CAPACITY:
         waiting[player] = [pos for pos, val in preferences.items() if val <= 5]
@@ -54,6 +74,15 @@ def assign_position(player, preferences, positions, assignment, waiting):
 
 
 def ranked_assignments(players):
+    """Assign players to fixed-capacity positions in input order.
+
+    Args:
+        players: Mapping of player names to ordered position preference ranks.
+
+    Returns:
+        A pair of the player-to-position assignment mapping and a waiting-list
+        mapping from player names to preferred positions that were full.
+    """
     positions = EVENT_POSITIONS.copy()
     assignment = {}
     waiting = {}
@@ -65,6 +94,14 @@ def ranked_assignments(players):
 
 
 def assign_ranked_players(players):
+    """Print ranked assignments and waiting players, then return both results.
+
+    Args:
+        players: Mapping of player names to position preference ranks.
+
+    Returns:
+        The assignment and waiting-list mappings from ``ranked_assignments``.
+    """
     assignment, waiting = ranked_assignments(players)
     for number, (player, position) in enumerate(assignment.items(), start=1):
         rank = players[player].get(position)
@@ -79,6 +116,14 @@ def assign_ranked_players(players):
 
 
 def is_woman(name):
+    """Return whether a name is in the configured signup-priority list.
+
+    Args:
+        name: Player's full name.
+
+    Returns:
+        ``1`` if the name is in the configured list; otherwise ``0``.
+    """
 
     if name in ['Eloise Vint', 'abigail Osoba', 'Rama Alrawi']:
         return 1
@@ -87,6 +132,22 @@ def is_woman(name):
 
 
 def assign_flexible(players, minimums):
+    """Assign the first event-capacity players in signup order.
+
+    Preference ranks are considered while respecting configured minimums and
+    the maximum for each position.
+
+    Args:
+        players: Ordered sequence of ``(name, preferences)`` pairs.
+        minimums: Mapping of position names to required minimum counts.
+
+    Returns:
+        A pair of assignment rows ``(name, position, rank)`` and the players
+        beyond event capacity as ``(name, preferences)`` pairs.
+
+    Raises:
+        ValueError: If the players cannot satisfy position minimums.
+    """
     assigned_players = players[:EVENT_CAPACITY]
     minimum_total = sum(minimums.values())
     if len(assigned_players) < minimum_total:
@@ -136,6 +197,20 @@ def assign_flexible(players, minimums):
 
 
 def assign_hungarian(players, minimums):
+    """Find a preference-optimized assignment within position limits.
+
+    Args:
+        players: Ordered sequence of ``(name, preferences)`` pairs.
+        minimums: Mapping of position names to required minimum counts.
+
+    Returns:
+        A pair of assignment rows ``(name, position, rank)`` and the players
+        beyond event capacity as ``(name, preferences)`` pairs.
+
+    Raises:
+        RuntimeError: If the optional ``munkres`` package is unavailable.
+        ValueError: If the player count cannot satisfy the configured limits.
+    """
     try:
         from munkres import Munkres
     except ImportError as error:
@@ -196,6 +271,19 @@ def assign_hungarian(players, minimums):
 
 
 def load_minimums(csv_path, total):
+    """Load and validate position minimums for a specific player count.
+
+    Args:
+        csv_path: Path to the CSV containing per-total position minimums.
+        total: Number of players to accommodate.
+
+    Returns:
+        A mapping of flexible position names to minimum player counts.
+
+    Raises:
+        ValueError: If required columns or a unique valid row are missing, or
+            the resulting limits cannot accommodate ``total``.
+    """
     minimums_df = pd.read_csv(csv_path)
     required_columns = {'total', *FLEXIBLE_LIMITS}
     missing_columns = required_columns - set(minimums_df.columns)
@@ -242,6 +330,15 @@ def load_minimums(csv_path, total):
 
 
 def run_flexible(df, minimums):
+    """Assign a Spond DataFrame in signup order and print results.
+
+    Args:
+        df: DataFrame with player names and preference-rank columns.
+        minimums: Mapping of position names to required minimum counts.
+
+    Returns:
+        None. Prints assignments, position totals, and any waiting players.
+    """
     players = []
     for _, row in df.iterrows():
         preferences = {}
@@ -272,6 +369,15 @@ def run_flexible(df, minimums):
 
 
 def run_hungarian(df, minimums):
+    """Assign a Spond DataFrame with Hungarian optimization and print results.
+
+    Args:
+        df: DataFrame with player names and preference-rank columns.
+        minimums: Mapping of position names to required minimum counts.
+
+    Returns:
+        None. Prints assignments, position totals, and any waiting players.
+    """
     players = []
     for _, row in df.iterrows():
         preferences = {}
@@ -304,6 +410,16 @@ def run_hungarian(df, minimums):
 
 
 def sort_signups(df, print_frames=False):
+    """Order sign-ups for ranked/Hungarian assignment and normalize ranks.
+
+    Args:
+        df: Spond sign-up DataFrame containing names and preference columns.
+        print_frames: If true, print intermediate DataFrame states.
+
+    Returns:
+        A copied DataFrame ordered by waiting status, configured priority,
+        preference completeness, and original signup order.
+    """
     df = df.copy()
     df['Order'] = range(1, len(df) + 1)
     df['Woman'] = df['Name'].apply(is_woman)
@@ -328,6 +444,11 @@ def sort_signups(df, print_frames=False):
 
 
 def main():
+    """Parse command-line options and run the selected assignment workflow.
+
+    Returns:
+        None. Prints assignment results; argparse exits for invalid arguments.
+    """
     parser = argparse.ArgumentParser(description='Assign players to volleyball positions.')
     parser.add_argument('csv_file', nargs='?', help='Spond sign-up CSV file')
     parser.add_argument(
