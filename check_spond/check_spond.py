@@ -121,14 +121,12 @@ def load_spond_client_module():
 async def fetch_upcoming_events(username, password, group_id):
     spond_client = load_spond_client_module().Spond
     client = spond_client(username=username, password=password)
-    now = datetime.now(timezone.utc)
     try:
         events = await client.get_events(
             group_id,
-            min_start=now,
             max_events=1000,
         )
-        events = upcoming_open_events(events or [], now)
+        events = visible_events(events or [])
         saved_events = []
         for event in events:
             people = []
@@ -198,19 +196,18 @@ def load_players_from_json(path=None, event_index=0):
     return players
 
 
-def upcoming_open_events(events, now):
-    open_events = []
+def visible_events(events):
+    visible = []
     for event in events:
-        if event.get('expired') is not False or event.get('hidden') is True:
+        if event.get('hidden') is True:
             continue
         start = datetime.fromisoformat(
             event['startTimestamp'].replace('Z', '+00:00')
         )
         if start.tzinfo is None:
             start = start.replace(tzinfo=timezone.utc)
-        if start > now:
-            open_events.append((start, event))
-    return [event for _, event in sorted(open_events, key=lambda item: item[0])]
+        visible.append((start, event))
+    return [event for _, event in sorted(visible, key=lambda item: item[0])]
 
 
 def load_saved_events():
@@ -222,13 +219,12 @@ def load_saved_events():
 
 
 async def main(source='api'):
-    now = datetime.now(timezone.utc)
     if source == 'json':
         events = load_event_cache()
         for event in events:
             print_event_details(event, event.get('people', []))
     elif source == 'results':
-        events = upcoming_open_events(load_saved_events(), now)
+        events = visible_events(load_saved_events())
         for event in events:
             print_event_details(event, accepted_people(event))
     else:
