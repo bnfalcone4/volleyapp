@@ -158,35 +158,38 @@ def normalize_preference_columns(df):
 
 
 def preference_rank_totals(assignments):
-    """Count assigned players by preference rank and return the scored total.
+    """Count assigned players by rank and return the sum of their rank scores.
 
     Args:
         assignments: Iterable of ``(name, position, rank)`` rows.
 
     Returns:
-        A pair of counts for ranks 1 through 5 and the sum of those counts.
-        Assignments without a rank are excluded.
+        A pair containing counts for ranks 1 through 5 and the sum of all
+        assigned rank values. Assignments without a rank are excluded.
     """
     totals = {rank: 0 for rank in range(1, 6)}
     for _, _, rank in assignments:
         if rank is not None and rank in totals:
             totals[rank] += 1
-    return totals, sum(totals.values())
+    return totals, sum(rank * count for rank, count in totals.items())
 
 
 def print_preference_rank_totals(assignments):
-    """Print counts by assigned preference rank and the scored total.
+    """Print counts by assigned preference rank, total, and average.
 
     Args:
         assignments: Iterable of ``(name, position, rank)`` rows.
 
     Returns:
-        None. Writes rank counts and their sum to standard output.
+        None. Writes rank counts, their sum, and average to standard output.
     """
     totals, total = preference_rank_totals(assignments)
     for rank, count in totals.items():
         print(f'Rank {rank}: {count}')
     print(f'Total: {total}')
+    player_count = sum(totals.values())
+    average = total / player_count if player_count else 0
+    print(f'Average: {average:.2f}')
 
 
 def ranked_assignments(players):
