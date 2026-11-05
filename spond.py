@@ -3,7 +3,8 @@
 The module supports ranked, signup-order flexible, and Hungarian assignments.
 Its command-line interface accepts either a Spond CSV export or cached event
 preferences; assignment helpers return player assignments and waiting lists,
-while the ``run_*`` helpers and CLI print results.
+while the ``run_*`` helpers and CLI print results. Submitted preference scores
+are compressed per player into consecutive ranks, with missing scores omitted.
 """
 
 import pandas as pd
@@ -73,6 +74,121 @@ def assign_position(player, preferences, positions, assignment, waiting):
     return assignment, positions, waiting
 
 
+def normalize_preference_ranks(preferences):
+    """Compress submitted position scores to consecutive preference ranks.
+
+    Positions are ordered by their submitted score, with ties resolved in the
+    order defined by ``PREFERENCE_COLUMNS``. Positions without scores are
+    omitted, so they remain empty rather than receiving a rank.
+
+    Args:
+        preferences: Mapping of position names to submitted numeric scores.
+
+    Returns:
+        A new mapping of scored positions to consecutive ranks starting at 1.
+    """
+    position_order = {
+        position: index for index, position in enumerate(PREFERENCE_COLUMNS)
+    }
+    scored = [
+        (position, score)
+        for position, score in preferences.items()
+        if pd.notna(score)
+    ]
+    scored.sort(
+        key=lambda item: (
+            item[1],
+            position_order.get(item[0], len(position_order)),
+        )
+    )
+    return {
+        position: rank
+        for rank, (position, _) in enumerate(scored, start=1)
+    }
+
+
+def normalize_player_preferences(players):
+    """Normalize every player's submitted preference scores.
+
+    Args:
+        players: Mapping of player names to position-to-score mappings.
+
+    Returns:
+        A new player mapping with each player's scored positions ranked
+        consecutively from 1, leaving unscored positions absent.
+    """
+    return {
+        name: normalize_preference_ranks(preferences)
+        for name, preferences in players.items()
+    }
+
+
+def normalize_preference_columns(df):
+    """Normalize preference scores in a Spond sign-up DataFrame.
+
+    Args:
+        df: DataFrame containing the position columns in
+            ``PREFERENCE_COLUMNS``.
+
+    Returns:
+        A copy of ``df`` with each player's submitted scores compressed to
+        consecutive ranks and missing scores left empty.
+    """
+    normalized_df = df.copy()
+    columns = list(PREFERENCE_COLUMNS.values())
+    normalized_rows = []
+    for row in normalized_df[columns].itertuples(index=False, name=None):
+        preferences = {
+            position: score
+            for position, score in zip(PREFERENCE_COLUMNS, row)
+        }
+        normalized = normalize_preference_ranks(preferences)
+        normalized_rows.append(
+            [
+                normalized.get(position, pd.NA)
+                for position in PREFERENCE_COLUMNS
+            ]
+        )
+    normalized_df[columns] = pd.DataFrame(
+        normalized_rows,
+        index=normalized_df.index,
+        columns=columns,
+    )
+    return normalized_df
+
+
+def preference_rank_totals(assignments):
+    """Count assigned players by preference rank and return the scored total.
+
+    Args:
+        assignments: Iterable of ``(name, position, rank)`` rows.
+
+    Returns:
+        A pair of counts for ranks 1 through 5 and the sum of those counts.
+        Assignments without a rank are excluded.
+    """
+    totals = {rank: 0 for rank in range(1, 6)}
+    for _, _, rank in assignments:
+        if rank is not None and rank in totals:
+            totals[rank] += 1
+    return totals, sum(totals.values())
+
+
+def print_preference_rank_totals(assignments):
+    """Print counts by assigned preference rank and the scored total.
+
+    Args:
+        assignments: Iterable of ``(name, position, rank)`` rows.
+
+    Returns:
+        None. Writes rank counts and their sum to standard output.
+    """
+    totals, total = preference_rank_totals(assignments)
+    for rank, count in totals.items():
+        print(f'Rank {rank}: {count}')
+    print(f'Total: {total}')
+
+
 def ranked_assignments(players):
     """Assign players to fixed-capacity positions in input order.
 
@@ -83,6 +199,7 @@ def ranked_assignments(players):
         A pair of the player-to-position assignment mapping and a waiting-list
         mapping from player names to preferred positions that were full.
     """
+    players = normalize_player_preferences(players)
     positions = EVENT_POSITIONS.copy()
     assignment = {}
     waiting = {}
@@ -102,6 +219,7 @@ def assign_ranked_players(players):
     Returns:
         The assignment and waiting-list mappings from ``ranked_assignments``.
     """
+    players = normalize_player_preferences(players)
     assignment, waiting = ranked_assignments(players)
     for number, (player, position) in enumerate(assignment.items(), start=1):
         rank = players[player].get(position)
@@ -112,6 +230,11 @@ def assign_ranked_players(players):
         print('Waiting:')
         for player, preferences in waiting.items():
             print(player.split()[0], '-'.join(preferences))
+    rows = [
+        (player, position, players[player].get(position))
+        for player, position in assignment.items()
+    ]
+    print_preference_rank_totals(rows)
     return assignment, waiting
 
 
@@ -148,6 +271,10 @@ def assign_flexible(players, minimums):
     Raises:
         ValueError: If the players cannot satisfy position minimums.
     """
+    players = [
+        (name, normalize_preference_ranks(preferences))
+        for name, preferences in players
+    ]
     assigned_players = players[:EVENT_CAPACITY]
     minimum_total = sum(minimums.values())
     if len(assigned_players) < minimum_total:
@@ -219,6 +346,10 @@ def assign_hungarian(players, minimums):
             '`python -m pip install munkres`.'
         ) from error
 
+    players = [
+        (name, normalize_preference_ranks(preferences))
+        for name, preferences in players
+    ]
     assigned_players = players[:EVENT_CAPACITY]
     player_count = len(assigned_players)
     minimum_total = sum(minimums.values())
@@ -366,6 +497,7 @@ def run_flexible(df, minimums):
         print('\nWaiting:')
         for name, _ in waiting:
             print(name)
+    print_preference_rank_totals(assignments)
 
 
 def run_hungarian(df, minimums):
@@ -407,6 +539,7 @@ def run_hungarian(df, minimums):
         print('\nWaiting:')
         for name, _ in waiting:
             print(name)
+    print_preference_rank_totals(assignments)
 
 
 def sort_signups(df, print_frames=False):
@@ -420,7 +553,7 @@ def sort_signups(df, print_frames=False):
         A copied DataFrame ordered by waiting status, configured priority,
         preference completeness, and original signup order.
     """
-    df = df.copy()
+    df = normalize_preference_columns(df)
     df['Order'] = range(1, len(df) + 1)
     df['Woman'] = df['Name'].apply(is_woman)
     df['Sum_preferences'] = df[list(PREFERENCE_COLUMNS.values())].sum(axis=1)
@@ -481,13 +614,15 @@ def main():
             parser.error('--preferences-json currently supports ranked mode only.')
         from check_spond.check_spond import load_players_from_json
 
-        players = load_players_from_json(args.preferences_json, args.event_index)
+        players = normalize_player_preferences(
+            load_players_from_json(args.preferences_json, args.event_index)
+        )
         assign_ranked_players(players)
         return
 
     if not args.csv_file:
         parser.error('csv_file is required unless --preferences-json is provided.')
-    df = pd.read_csv(args.csv_file)
+    df = normalize_preference_columns(pd.read_csv(args.csv_file))
 
     if args.mode in ('flexible', 'hungarian'):
         total = min(len(df), EVENT_CAPACITY)
@@ -519,7 +654,9 @@ def main():
         players[name] = {
             position: value
             for position, value in sorted(preferences.items(), key=lambda item: item[1])
+            if pd.notna(value) and value <= 5
         }
+    players = normalize_player_preferences(players)
 
     positions = EVENT_POSITIONS.copy()
     assignment = {}
@@ -551,6 +688,11 @@ def main():
     for key, value in waiting.items():
         print(key, '-'.join(value))
     print(players)
+    rows = [
+        (player, position, players[player].get(position))
+        for player, position in assignment.items()
+    ]
+    print_preference_rank_totals(rows)
 
 
 if __name__ == '__main__':

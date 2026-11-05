@@ -141,7 +141,14 @@ def assignment_rows(mode, result, players):
     return rows, waiting_rows
 
 
-def display_assignments(assignments, waiting, limits, players, streamlit=None):
+def display_assignments(
+    assignments,
+    waiting,
+    limits,
+    players,
+    assignment_module,
+    streamlit=None,
+):
     """Render assignments, waiting-list preferences, and position totals.
 
     Args:
@@ -150,6 +157,7 @@ def display_assignments(assignments, waiting, limits, players, streamlit=None):
         limits: Mapping of positions to (minimum, maximum) counts.
         players: Mapping of all full player names to their preferences, used
             to disambiguate duplicate first names.
+        assignment_module: Loaded module providing the preference-rank tally.
         streamlit: Optional Streamlit API object. When omitted, output is
             printed to the terminal.
 
@@ -185,6 +193,50 @@ def display_assignments(assignments, waiting, limits, players, streamlit=None):
         total = sum(row[1] == position for row in assignments)
         write(f'{position}: {total} (minimum {minimum}, maximum {maximum})')
 
+    rank_totals, rank_total = assignment_module.preference_rank_totals(assignments)
+    markdown('**Preference rank totals**' if streamlit else 'Preference rank totals:')
+    for rank, total in rank_totals.items():
+        write(f'Rank {rank}: {total}')
+    write(f'Total: {rank_total}')
+
+
+def edit_event_attendance(event, players, assignment_module, streamlit):
+    """Render attendance checkboxes and return only selected players.
+
+    The first event-capacity players default to attending; later players
+    (initially on the waiting list) default to not attending. Checkbox state is
+    stored per event and player in Streamlit's session state. Each checkbox
+    change reruns the app and recalculates the assignment lists.
+
+    Args:
+        event: Event mapping used to create stable attendance widget keys.
+        players: Mapping of player names to normalized preference ranks.
+        assignment_module: Loaded module providing event-capacity settings.
+        streamlit: Streamlit API object providing session state and widgets.
+
+    Returns:
+        A player-to-preferences mapping containing only checked players, in
+        their original signup order.
+    """
+    selected_players = {}
+    with streamlit.expander('Edit attendance'):
+        streamlit.caption(
+            'Checked players are attending. Players beyond event capacity '
+            'start unchecked. Assignments update when attendance changes.'
+        )
+        for index, (name, preferences) in enumerate(players.items()):
+            key = f'attendance:{event.get("id", "event")}:{name}'
+            if key not in streamlit.session_state:
+                streamlit.session_state[key] = (
+                    index < assignment_module.EVENT_CAPACITY
+                )
+            if streamlit.checkbox(name, key=key):
+                selected_players[name] = preferences
+        streamlit.caption(
+            f'{len(selected_players)} of {len(players)} players marked attending.'
+        )
+    return selected_players
+
 
 def display_event(event, assignment_module, streamlit=None):
     """Calculate and display all assignment modes for one event.
@@ -200,6 +252,14 @@ def display_event(event, assignment_module, streamlit=None):
         None. Displays the event's assignments and reports per-mode calculation
         errors through the selected output interface.
     """
+    players = assignment_module.normalize_player_preferences(event['players'])
+    if streamlit:
+        players = edit_event_attendance(
+            event,
+            players,
+            assignment_module,
+            streamlit,
+        )
     start = datetime.fromisoformat(event['startTimestamp'].replace('Z', '+00:00'))
     end = datetime.fromisoformat(event['endTimestamp'].replace('Z', '+00:00'))
     start = start.astimezone(timezone.utc)
@@ -215,19 +275,20 @@ def display_event(event, assignment_module, streamlit=None):
             with tab:
                 try:
                     result, limits = calculate_assignments(
-                        mode, event['players'], assignment_module
+                        mode, players, assignment_module
                     )
                 except (OSError, RuntimeError, ValueError) as error:
                     streamlit.error(f'Could not calculate {mode} assignments: {error}')
                     continue
                 assignments, waiting = assignment_rows(
-                    mode, result, event['players']
+                    mode, result, players
                 )
                 display_assignments(
                     assignments,
                     waiting,
                     limits,
-                    event['players'],
+                    players,
+                    assignment_module,
                     streamlit=streamlit,
                 )
         return
@@ -238,17 +299,18 @@ def display_event(event, assignment_module, streamlit=None):
         print(f'\n{mode.title()}')
         try:
             result, limits = calculate_assignments(
-                mode, event['players'], assignment_module
+                mode, players, assignment_module
             )
         except (OSError, RuntimeError, ValueError) as error:
             print(f'Could not calculate {mode} assignments: {error}')
             continue
-        assignments, waiting = assignment_rows(mode, result, event['players'])
+        assignments, waiting = assignment_rows(mode, result, players)
         display_assignments(
             assignments,
             waiting,
             limits,
-            event['players'],
+            players,
+            assignment_module,
         )
 
 
@@ -304,7 +366,7 @@ def streamlit_main():
     fetch_module = load_fetch_module()
     st.set_page_config(page_title='VolleyApp', page_icon='🏐')
     st.title('Volleyball sign-ups')
-    st.write('Fetch upcoming open events and assign positions from live Spond data.')
+    st.write('Upcoming open events and position assignments from live Spond data.')
 
     try:
         configured = st.secrets
@@ -337,13 +399,16 @@ def streamlit_main():
         st.error('Configure Spond credentials and group ID in Streamlit secrets.')
         return
 
-    if st.button('Fetch live events'):
+    if (
+        'events' not in st.session_state
+        and 'events_load_error' not in st.session_state
+    ):
         try:
             events = asyncio.run(
                 fetch_module.fetch_upcoming_events(username, password, group_id)
             )
         except (ImportError, OSError, ValueError, KeyError) as error:
-            st.error(f'Could not load Spond events: {error}')
+            st.session_state['events_load_error'] = str(error)
         else:
             st.session_state['events'] = [
                 {
@@ -356,9 +421,16 @@ def streamlit_main():
                 for event in events
             ]
 
+    if 'events_load_error' in st.session_state:
+        st.error(
+            'Could not load Spond events: '
+            f'{st.session_state["events_load_error"]} Reload the app to retry.'
+        )
+        return
+
     events = st.session_state.get('events', [])
     if not events:
-        st.info('Fetch live events to view upcoming open sign-ups.')
+        st.info('No upcoming events with open sign-up were found.')
         return
 
     def event_label(event):

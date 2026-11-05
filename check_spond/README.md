@@ -31,10 +31,15 @@ password = "your-spond-password"
 group_id = "your-spond-group-id"
 ```
 
-The app requires the app password to view data. It fetches live events when
-**Fetch live events** is submitted and keeps only event details and preference
-dictionaries in the app session. Each event displays separate Ranked, Flexible,
-and Hungarian assignment results. Flexible and Hungarian use the matching
-player-count row in the repository-root `min_positions.csv`; the local terminal
-mode prints all three results and also saves fetched data to
-`upcoming_events.json`.
+The app requires the app password to view data. It automatically fetches live
+events after login and keeps only event details and preference dictionaries in
+the app session, so reruns do not fetch them again. If loading fails, reload the
+app to retry. Each event displays separate Ranked, Flexible, and Hungarian
+assignment results. Flexible and Hungarian use the matching player-count row in
+the repository-root `min_positions.csv`; the local terminal mode prints all
+three results and also saves fetched data to `upcoming_events.json`. For each
+player, submitted preference scores are sorted and renumbered consecutively
+from 1; positions without a score remain blank.
+Use **Edit attendance** to check or uncheck players; the first 21 players start
+checked and players beyond the event capacity (initially waiting) start
+unchecked. Each checkbox change immediately recalculates all assignment lists.
