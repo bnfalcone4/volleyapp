@@ -1,3 +1,13 @@
+"""Print position assignments and waiting lists from a YAML configuration.
+
+Usage:
+    python volley.py CONFIG.yaml
+
+The YAML file is expected to map each position name to an ordered player list.
+The script prints each position's capacity, assigned players, waiting players,
+and a per-player summary of requested positions.
+"""
+
 import hashlib
 import random
 import yaml

@@ -1,3 +1,9 @@
+"""Fetch, cache, and inspect upcoming Spond volleyball events.
+
+The module can read live events from Spond or load cached/saved event data.
+It normalizes attendee preference fields for use by the assignment module.
+"""
+
 import argparse
 import ast
 import asyncio
@@ -45,6 +51,15 @@ IDENTIFIER_MEANINGS = {
 #st.title('Volleyball Positions')
 
 def accepted_people(event):
+    """Return accepted group members for a Spond event.
+
+    Args:
+        event: Spond event mapping containing accepted response IDs and group
+            member records.
+
+    Returns:
+        Member mappings whose IDs appear in the event's accepted response list.
+    """
     accepted_ids = event.get('responses', {}).get('acceptedIds', [])
     members = event.get('recipients', {}).get('group', {}).get('members', [])
     members_by_id = {member.get('id'): member for member in members}
@@ -52,6 +67,15 @@ def accepted_people(event):
 
 
 def print_event_details(event, people):
+    """Print an event's UTC date/time and attendee first names.
+
+    Args:
+        event: Event mapping containing heading and ISO start/end timestamps.
+        people: Iterable of attendee mappings.
+
+    Returns:
+        None. Writes event details to standard output.
+    """
     start = datetime.fromisoformat(
         event['startTimestamp'].replace('Z', '+00:00')
     )
@@ -69,6 +93,18 @@ def print_event_details(event, people):
 
 
 def save_event_cache(events, group_id):
+    """Write fetched events and schema metadata to the local JSON cache.
+
+    Args:
+        events: Iterable of event mappings to serialize.
+        group_id: Spond group identifier associated with the events.
+
+    Returns:
+        Path to the written ``upcoming_events.json`` cache.
+
+    Raises:
+        OSError: If the cache cannot be written.
+    """
     cache_path = Path(__file__).with_name('upcoming_events.json')
     cache = {
         'generatedAt': datetime.now(timezone.utc).isoformat(),
@@ -85,6 +121,16 @@ def save_event_cache(events, group_id):
 
 
 def load_event_cache():
+    """Load and validate events from the local JSON cache.
+
+    Returns:
+        The cached list of event mappings.
+
+    Raises:
+        OSError: If the cache file cannot be read.
+        ValueError: If the cache does not contain an events list.
+        json.JSONDecodeError: If the cache is not valid JSON.
+    """
     cache_path = Path(__file__).with_name('upcoming_events.json')
     cache = json.loads(cache_path.read_text(encoding='utf-8'))
     if not isinstance(cache, dict) or not isinstance(cache.get('events'), list):
@@ -93,6 +139,17 @@ def load_event_cache():
 
 
 def load_spond_client_module():
+    """Import and return the installed Spond API client module.
+
+    Temporarily removes the repository root from ``sys.path`` so this
+    repository's ``spond.py`` does not shadow the installed ``spond`` package.
+
+    Returns:
+        The installed ``spond.spond`` module.
+
+    Raises:
+        ImportError: If the Spond API package is not installed.
+    """
     repository_root = Path(__file__).resolve().parents[1]
     local_script = repository_root / 'spond.py'
     cached_module = sys.modules.get('spond')
@@ -119,6 +176,22 @@ def load_spond_client_module():
 
 
 async def fetch_upcoming_events(username, password, group_id):
+    """Fetch visible upcoming events and build normalized attendee data.
+
+    Args:
+        username: Spond account username.
+        password: Spond account password.
+        group_id: Identifier of the Spond group to query.
+
+    Returns:
+        A list of event mappings with attendees and normalized player
+        preference dictionaries.
+
+    Raises:
+        ImportError: If the Spond API client package is unavailable.
+        ValueError: If attendee preference data is malformed or names collide.
+        Exception: Propagates API and network errors from the Spond client.
+    """
     spond_client = load_spond_client_module().Spond
     client = spond_client(username=username, password=password)
     try:
@@ -146,6 +219,19 @@ async def fetch_upcoming_events(username, password, group_id):
 
 
 def player_preferences(people):
+    """Convert Spond attendee records into position preference dictionaries.
+
+    Args:
+        people: Iterable of Spond person mappings with optional ``fields``.
+
+    Returns:
+        Mapping of full player names to position-to-rank mappings, ordered by
+        preference rank.
+
+    Raises:
+        ValueError: If names are duplicated, ``fields`` is malformed, or a
+            preference rank is not an integer from 1 through 5.
+    """
     players = {}
     for person in people:
         name = ' '.join(
@@ -175,6 +261,21 @@ def player_preferences(people):
 
 
 def load_players_from_json(path=None, event_index=0):
+    """Load normalized player preferences for one cached event.
+
+    Args:
+        path: Optional path to an event-cache JSON file; defaults to the cache
+            beside this module.
+        event_index: Zero-based index of the event in the cache.
+
+    Returns:
+        Mapping of player names to position preference ranks.
+
+    Raises:
+        OSError: If the cache file cannot be read.
+        ValueError: If the cache or selected player's data has an invalid shape.
+        IndexError: If ``event_index`` is outside the cached event list.
+    """
     cache_path = Path(path) if path is not None else Path(__file__).with_name(
         'upcoming_events.json'
     )
@@ -197,6 +298,18 @@ def load_players_from_json(path=None, event_index=0):
 
 
 def visible_events(events):
+    """Remove hidden events and sort the rest by start time.
+
+    Args:
+        events: Iterable of Spond event mappings with start timestamps.
+
+    Returns:
+        A list of visible event mappings ordered by start time.
+
+    Raises:
+        KeyError: If an event has no start timestamp.
+        ValueError: If a start timestamp is malformed.
+    """
     visible = []
     for event in events:
         if event.get('hidden') is True:
@@ -211,6 +324,16 @@ def visible_events(events):
 
 
 def load_saved_events():
+    """Read the Python-literal event list from ``results.py``.
+
+    Returns:
+        The saved list of event mappings.
+
+    Raises:
+        OSError: If the saved-data file cannot be read.
+        ValueError: If the file is not a literal event list.
+        SyntaxError: If the saved data is not valid Python literal syntax.
+    """
     results_path = Path(__file__).with_name('results.py')
     events = ast.literal_eval(results_path.read_text(encoding='utf-8'))
     if not isinstance(events, list):
@@ -219,6 +342,20 @@ def load_saved_events():
 
 
 async def main(source='api'):
+    """Run the event inspection workflow for the selected data source.
+
+    Args:
+        source: ``api`` to fetch live events, ``json`` to read the JSON cache,
+            or ``results`` to read the saved Python-literal event file.
+
+    Returns:
+        None. Prints event details and saves the cache for live API requests.
+
+    Raises:
+        ValueError: If API credentials are missing or ``source`` cannot be
+            used to load data.
+        Exception: Propagates file, parsing, and Spond API errors.
+    """
     if source == 'json':
         events = load_event_cache()
         for event in events:

@@ -1,3 +1,5 @@
+"""Minimal Streamlit smoke-test page displaying a one-row pandas DataFrame."""
+
 import pandas as pd
 import streamlit as st
 

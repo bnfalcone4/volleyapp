@@ -33,5 +33,8 @@ group_id = "your-spond-group-id"
 
 The app requires the app password to view data. It fetches live events when
 **Fetch live events** is submitted and keeps only event details and preference
-dictionaries in the app session. The local terminal mode also saves fetched
-data to `upcoming_events.json`.
+dictionaries in the app session. Each event displays separate Ranked, Flexible,
+and Hungarian assignment results. Flexible and Hungarian use the matching
+player-count row in the repository-root `min_positions.csv`; the local terminal
+mode prints all three results and also saves fetched data to
+`upcoming_events.json`.
