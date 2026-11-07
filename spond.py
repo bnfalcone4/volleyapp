@@ -10,10 +10,12 @@ are compressed per player into consecutive ranks, with missing scores omitted.
 
 import pandas as pd
 import argparse
+import math
 import sys
 from pathlib import Path
 
 EVENT_CAPACITY = 21
+
 EVENT_POSITIONS = {
     'setter': 3,
     'outside': 6,
@@ -22,12 +24,13 @@ EVENT_POSITIONS = {
     'libero': 3,
     'unknown': EVENT_CAPACITY,
 }
-FLEXIBLE_LIMITS = {
-    'setter': (2, 3),
-    'outside': (4, 9),
-    'middle': (2, 6),
-    'opposite': (2, 3),
-    'libero': (2, 3),
+
+FLEXIBLE_MAXIMUM_FACTORS = {
+    'setter': 1,
+    'outside': 3,
+    'middle': 2,
+    'opposite': 1,
+    'libero': 1,
 }
 
 PREFERENCE_COLUMNS = {
@@ -355,7 +358,40 @@ def is_woman(name):
     return 0
 
 
-def assign_flexible(players, minimums, event_capacity=EVENT_CAPACITY):
+def _validate_flexible_limits(minimums, maximums, player_count):
+    """Validate flexible position limits for the players being assigned."""
+    for position in FLEXIBLE_MAXIMUM_FACTORS:
+        minimum = minimums.get(position)
+        maximum = maximums.get(position)
+        if (
+            isinstance(minimum, bool)
+            or not isinstance(minimum, int)
+            or isinstance(maximum, bool)
+            or not isinstance(maximum, int)
+            or minimum < 0
+            or maximum < minimum
+        ):
+            raise ValueError(
+                f'Invalid limits for {position}: minimum {minimum!r}, '
+                f'maximum {maximum!r}.'
+            )
+
+    minimum_total = sum(minimums[position] for position in FLEXIBLE_MAXIMUM_FACTORS)
+    maximum_total = sum(maximums[position] for position in FLEXIBLE_MAXIMUM_FACTORS)
+    if not minimum_total <= player_count <= maximum_total:
+        raise ValueError(
+            f'Position limits cannot assign {player_count} players; the '
+            f'configured minimums total {minimum_total} and maximums total '
+            f'{maximum_total}.'
+        )
+
+
+def assign_flexible(
+    players,
+    minimums,
+    event_capacity=EVENT_CAPACITY,
+    maximums=None,
+):
     """Assign the first event-capacity players in signup order.
 
     Preference ranks are considered while respecting configured minimums and
@@ -365,38 +401,38 @@ def assign_flexible(players, minimums, event_capacity=EVENT_CAPACITY):
         players: Ordered sequence of ``(name, preferences)`` pairs.
         minimums: Mapping of position names to required minimum counts.
         event_capacity: Maximum number of players assigned to the event.
+        maximums: Optional mapping of position names to maximum counts. Defaults
+            to count-based limits from ``FLEXIBLE_MAXIMUM_FACTORS``.
 
     Returns:
         A pair of assignment rows ``(name, position, rank)`` and the players
         beyond event capacity as ``(name, preferences)`` pairs.
 
     Raises:
-        ValueError: If the players cannot satisfy position minimums.
+        ValueError: If the players cannot satisfy the configured position
+            limits.
     """
     players = [
         (name, normalize_preference_ranks(preferences))
         for name, preferences in players
     ]
     assigned_players = players[:event_capacity]
-    minimum_total = sum(minimums.values())
-    if len(assigned_players) < minimum_total:
-        raise ValueError(
-            f'The configured position minimums total {minimum_total}, but only '
-            f'{len(assigned_players)} players can be assigned.'
-        )
+    if maximums is None:
+        maximums = load_maximums(len(assigned_players))
+    _validate_flexible_limits(minimums, maximums, len(assigned_players))
 
-    counts = {position: 0 for position in FLEXIBLE_LIMITS}
+    counts = {position: 0 for position in FLEXIBLE_MAXIMUM_FACTORS}
     assignments = []
 
     for index, (name, preferences) in enumerate(assigned_players):
         remaining_players = len(assigned_players) - index - 1
         ranked_positions = sorted(
-            FLEXIBLE_LIMITS,
+            FLEXIBLE_MAXIMUM_FACTORS,
             key=lambda position: preferences.get(position, 6),
         )
 
         for position in ranked_positions:
-            _, maximum = FLEXIBLE_LIMITS[position]
+            maximum = maximums[position]
             if counts[position] >= maximum:
                 continue
 
@@ -406,8 +442,8 @@ def assign_flexible(players, minimums, event_capacity=EVENT_CAPACITY):
                 for role, minimum in minimums.items()
             )
             available_slots = sum(
-                maximum - counts[role]
-                for role, (_, maximum) in FLEXIBLE_LIMITS.items()
+                maximums[role] - counts[role]
+                for role in FLEXIBLE_MAXIMUM_FACTORS
             )
             if (
                 minimums_still_needed <= remaining_players
@@ -425,7 +461,12 @@ def assign_flexible(players, minimums, event_capacity=EVENT_CAPACITY):
     return assignments, players[event_capacity:]
 
 
-def assign_hungarian(players, minimums, event_capacity=EVENT_CAPACITY):
+def assign_hungarian(
+    players,
+    minimums,
+    event_capacity=EVENT_CAPACITY,
+    maximums=None,
+):
     """Find a preference-optimized assignment within position limits.
 
     Unscored positions receive the next rank after each player's submitted
@@ -435,6 +476,8 @@ def assign_hungarian(players, minimums, event_capacity=EVENT_CAPACITY):
         players: Ordered sequence of ``(name, preferences)`` pairs.
         minimums: Mapping of position names to required minimum counts.
         event_capacity: Maximum number of players assigned to the event.
+        maximums: Optional mapping of position names to maximum counts. Defaults
+            to count-based limits from ``FLEXIBLE_MAXIMUM_FACTORS``.
 
     Returns:
         A pair of assignment rows ``(name, position, rank)`` and the players
@@ -458,16 +501,14 @@ def assign_hungarian(players, minimums, event_capacity=EVENT_CAPACITY):
     ]
     assigned_players = players[:event_capacity]
     player_count = len(assigned_players)
-    minimum_total = sum(minimums.values())
-    maximum_total = sum(maximum for _, maximum in FLEXIBLE_LIMITS.values())
-    if not minimum_total <= player_count <= maximum_total:
-        raise ValueError(
-            f'Position limits cannot assign {player_count} players; the configured '
-            f'minimums total {minimum_total} and maximums total {maximum_total}.'
-        )
+    if maximums is None:
+        maximums = load_maximums(player_count)
+    _validate_flexible_limits(minimums, maximums, player_count)
 
     slots = []
-    for position, (minimum, maximum) in FLEXIBLE_LIMITS.items():
+    for position in FLEXIBLE_MAXIMUM_FACTORS:
+        minimum = minimums[position]
+        maximum = maximums[position]
         slots.extend((position, True) for _ in range(minimums[position]))
         slots.extend((position, False) for _ in range(maximum - minimums[position]))
 
@@ -522,7 +563,8 @@ def load_minimums(csv_path, total):
 
     Args:
         csv_path: Path to the CSV containing per-total position minimums.
-        total: Number of players to accommodate.
+        total: Number of players to accommodate. Counts above the largest
+            configured total use that largest total's minimums.
 
     Returns:
         A mapping of flexible position names to minimum player counts.
@@ -532,7 +574,7 @@ def load_minimums(csv_path, total):
             the resulting limits cannot accommodate ``total``.
     """
     minimums_df = pd.read_csv(csv_path)
-    required_columns = {'total', *FLEXIBLE_LIMITS}
+    required_columns = {'total', *FLEXIBLE_MAXIMUM_FACTORS}
     missing_columns = required_columns - set(minimums_df.columns)
     if missing_columns:
         raise ValueError(
@@ -540,26 +582,32 @@ def load_minimums(csv_path, total):
         )
 
     totals = pd.to_numeric(minimums_df['total'], errors='coerce')
-    matching_rows = minimums_df.loc[totals == total]
+    configured_totals = totals.dropna()
+    if configured_totals.empty:
+        raise ValueError(f'{csv_path} does not contain any valid player totals.')
+    lookup_total = min(total, int(configured_totals.max()))
+    matching_rows = minimums_df.loc[totals == lookup_total]
     if len(matching_rows) != 1:
         raise ValueError(
-            f'{csv_path} must contain exactly one row for total={total}; '
+            f'{csv_path} must contain exactly one row for total={lookup_total}; '
             f'found {len(matching_rows)}.'
         )
 
     row = matching_rows.iloc[0]
     minimums = {}
-    for position in FLEXIBLE_LIMITS:
+    maximums = load_maximums(total)
+    for position in FLEXIBLE_MAXIMUM_FACTORS:
         value = pd.to_numeric(row[position], errors='coerce')
         if pd.isna(value) or value < 0 or not float(value).is_integer():
             raise ValueError(
-                f'{csv_path} has an invalid minimum for {position} at total={total}.'
+                f'{csv_path} has an invalid minimum for {position} at '
+                f'total={lookup_total}.'
             )
         minimum = int(value)
-        if minimum > FLEXIBLE_LIMITS[position][1]:
+        if minimum > maximums[position]:
             raise ValueError(
-                f'{csv_path} sets {position} minimum to {minimum}, above its maximum '
-                f'of {FLEXIBLE_LIMITS[position][1]}.'
+                f'{csv_path} sets {position} minimum to {minimum}, above its '
+                f'maximum of {maximums[position]} for {total} players.'
             )
         minimums[position] = minimum
 
@@ -569,11 +617,20 @@ def load_minimums(csv_path, total):
             f'{csv_path} minimums for total={total} sum to {minimum_total}, '
             f'which exceeds the total.'
         )
-    if sum(maximum for _, maximum in FLEXIBLE_LIMITS.values()) < total:
+    if sum(maximums.values()) < total:
         raise ValueError(
             f'{csv_path} position maximums cannot accommodate total={total}.'
         )
     return minimums
+
+
+def load_maximums(total):
+    """Calculate maximum position counts from the active-player count."""
+    groups_of_six = math.ceil(total / 7)
+    return {
+        position: min(total, groups_of_six * factor)
+        for position, factor in FLEXIBLE_MAXIMUM_FACTORS.items()
+    }
 
 
 def run_flexible(df, minimums):
@@ -596,7 +653,8 @@ def run_flexible(df, minimums):
         players.append((row['Name'], preferences))
 
     assignments, waiting = assign_flexible(players, minimums)
-    counts = {position: 0 for position in FLEXIBLE_LIMITS}
+    maximums = load_maximums(min(len(players), EVENT_CAPACITY))
+    counts = {position: 0 for position in FLEXIBLE_MAXIMUM_FACTORS}
 
     print('Flexible assignments (signup order):')
     for number, (name, position, rank) in enumerate(assignments, start=1):
@@ -605,7 +663,7 @@ def run_flexible(df, minimums):
         print(f'{number}. {name} - {position} - {score}')
 
     print('\nPosition totals:')
-    for position, (_, maximum) in FLEXIBLE_LIMITS.items():
+    for position, maximum in maximums.items():
         minimum = minimums[position]
         print(f'{position}: {counts[position]} (minimum {minimum}, maximum {maximum})')
 
@@ -650,7 +708,8 @@ def run_optimized(df, minimums):
         players.append((row['Name'], preferences))
 
     assignments, waiting = assign_hungarian(players, minimums)
-    counts = {position: 0 for position in FLEXIBLE_LIMITS}
+    maximums = load_maximums(min(len(players), EVENT_CAPACITY))
+    counts = {position: 0 for position in FLEXIBLE_MAXIMUM_FACTORS}
 
     print('Optimized assignments:')
     for number, (name, position, rank) in enumerate(assignments, start=1):
@@ -659,7 +718,7 @@ def run_optimized(df, minimums):
         print(f'{number}. {name} - {position} - {score}')
 
     print('\nPosition totals:')
-    for position, (_, maximum) in FLEXIBLE_LIMITS.items():
+    for position, maximum in maximums.items():
         print(
             f'{position}: {counts[position]} '
             f'(minimum {minimums[position]}, maximum {maximum})'

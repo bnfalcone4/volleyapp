@@ -77,12 +77,24 @@ def first_name_label(full_name, counts, seen):
     return first_name
 
 
+def default_position_limits(assignment_module, player_count):
+    """Return CSV minimums and calculated maximums for a player count."""
+    minimums_path = Path(__file__).resolve().parents[1] / 'min_positions.csv'
+    minimums = assignment_module.load_minimums(minimums_path, player_count)
+    maximums = assignment_module.load_maximums(player_count)
+    return {
+        position: (minimums[position], maximums[position])
+        for position in assignment_module.FLEXIBLE_MAXIMUM_FACTORS
+    }
+
+
 def calculate_assignments(
     mode,
     players,
     assignment_module,
     event_capacity=None,
     signup_count=None,
+    position_limits=None,
 ):
     """Run one assignment mode and return its results and position limits.
 
@@ -94,6 +106,8 @@ def calculate_assignments(
             position-limit configuration.
         event_capacity: Maximum number of players assigned to the event.
         signup_count: Number of selected players to use for minimum lookup.
+        position_limits: Optional mapping of positions to custom
+            (minimum, maximum) counts for Flexible and Optimized modes.
 
     Returns:
         A pair of the algorithm's (assignments, waiting list) result and a
@@ -131,26 +145,127 @@ def calculate_assignments(
     if signup_count is None:
         signup_count = len(players)
     total = min(signup_count, event_capacity)
-    minimums_path = Path(__file__).resolve().parents[1] / 'min_positions.csv'
-    minimums = assignment_module.load_minimums(minimums_path, total)
-    signup_order = list(players.items())
-    limits = {
-        position: (minimums[position], maximum)
-        for position, (_, maximum) in assignment_module.FLEXIBLE_LIMITS.items()
+    default_limits = default_position_limits(assignment_module, total)
+    if position_limits is None:
+        position_limits = default_limits
+    minimums = {
+        position: limits[0] for position, limits in position_limits.items()
     }
+    maximums = {
+        position: limits[1] for position, limits in position_limits.items()
+    }
+    signup_order = list(players.items())
+    limits = position_limits
     if mode == 'flexible':
         return assignment_module.assign_flexible(
             signup_order,
             minimums,
             event_capacity=event_capacity,
+            maximums=maximums,
         ), limits
     if mode == 'optimized':
         return assignment_module.assign_hungarian(
             signup_order,
             minimums,
             event_capacity=event_capacity,
+            maximums=maximums,
         ), limits
     raise ValueError(f'Unsupported assignment mode: {mode}.')
+
+
+def edit_position_limits(mode, event, defaults, player_count, streamlit):
+    """Render feasible position limits for one assignment mode."""
+    limits = {}
+    state = streamlit.session_state
+    event_id = event.get('id', 'event')
+    count_key = f'position_limit:{event_id}:{mode}:player_count'
+    if state.get(count_key) != player_count:
+        for position, (minimum, maximum) in defaults.items():
+            state[
+                f'position_limit_widget:{event_id}:{mode}:{position}:min'
+            ] = minimum
+            state[
+                f'position_limit_widget:{event_id}:{mode}:{position}:max'
+            ] = maximum
+        state[count_key] = player_count
+
+    for position, (default_minimum, default_maximum) in defaults.items():
+        minimum_key = f'position_limit_widget:{event_id}:{mode}:{position}:min'
+        maximum_key = f'position_limit_widget:{event_id}:{mode}:{position}:max'
+        state.setdefault(minimum_key, default_minimum)
+        state.setdefault(maximum_key, default_maximum)
+        maximum = min(max(0, state[maximum_key]), player_count)
+        minimum = min(max(0, state[minimum_key]), maximum)
+        state[minimum_key] = minimum
+        state[maximum_key] = maximum
+        limits[position] = [minimum, maximum]
+
+    minimum_total = sum(values[0] for values in limits.values())
+    for values in reversed(list(limits.values())):
+        reduction = min(values[0], minimum_total - player_count)
+        values[0] -= max(0, reduction)
+        minimum_total -= max(0, reduction)
+
+    maximum_total = sum(values[1] for values in limits.values())
+    for values in limits.values():
+        increase = min(player_count - values[1], player_count - maximum_total)
+        values[1] += max(0, increase)
+        maximum_total += max(0, increase)
+
+    with streamlit.expander('Adjust position limits'):
+        streamlit.caption(
+            f'{player_count} active players (excluding the waitlist). '
+            'Minimum and maximum totals must accommodate them.'
+        )
+        for position, values in limits.items():
+            minimum_key = (
+                f'position_limit_widget:{event_id}:'
+                f'{mode}:{position}:min'
+            )
+            maximum_key = minimum_key[:-3] + 'max'
+            columns = streamlit.columns((1.2, 1, 1))
+            with columns[0]:
+                streamlit.markdown(f'**{position.title()}**')
+            other_minimums = sum(
+                limits[other][0] for other in limits if other != position
+            )
+            minimum_maximum = min(
+                state[maximum_key],
+                player_count - other_minimums,
+            )
+            with columns[1]:
+                minimum = streamlit.number_input(
+                    'Min',
+                    min_value=0,
+                    max_value=minimum_maximum,
+                    step=1,
+                    label_visibility='collapsed',
+                    key=minimum_key,
+                )
+            limits[position][0] = minimum
+
+            other_maximums = sum(
+                limits[other][1] for other in limits if other != position
+            )
+            maximum_minimum = max(
+                minimum,
+                player_count - other_maximums,
+            )
+            with columns[2]:
+                maximum = streamlit.number_input(
+                    'Max',
+                    min_value=maximum_minimum,
+                    max_value=player_count,
+                    step=1,
+                    label_visibility='collapsed',
+                    key=maximum_key,
+                )
+            limits[position][1] = maximum
+
+    return {
+        position: (minimum, maximum)
+        for position, (minimum, maximum) in limits.items()
+    }
 
 
 def assignment_rows(mode, result, players):
@@ -467,13 +582,22 @@ def display_event(event, assignment_module, streamlit=None):
         )
         cascade_key = f'show_cascade:{event.get("id", "event")}'
         show_cascade = streamlit.session_state.get(cascade_key, 'no') == 'yes'
+        active_player_count = min(len(players), event_capacity)
+        mode_descriptions = {
+            'ranked': 'First come first based',
+            'strict': (
+                'Assign top preference in sign up order and stop when not possible'
+            ),
+            'flexible': 'First come first based with flexible position limits',
+            'optimized': "Optimized to maximize players' preferences",
+        }
         tabs = streamlit.tabs([mode.title() for mode in ASSIGNMENT_MODES])
         for mode, tab in zip(ASSIGNMENT_MODES, tabs):
             with tab:
+                streamlit.caption(mode_descriptions[mode])
                 if (
                     mode in ('flexible', 'optimized')
-                    and min(len(players), event_capacity)
-                    < MIN_PLAYERS_FOR_FLEXIBLE_ASSIGNMENT
+                    and active_player_count < MIN_PLAYERS_FOR_FLEXIBLE_ASSIGNMENT
                 ):
                     streamlit.info(
                         'Cannot assign Flexible/Optimized positions with less than '
@@ -481,12 +605,30 @@ def display_event(event, assignment_module, streamlit=None):
                     )
                     continue
                 try:
+                    position_limits = None
+                    if mode in ('flexible', 'optimized'):
+                        defaults = default_position_limits(
+                            assignment_module,
+                            active_player_count,
+                        )
+                        position_limits = edit_position_limits(
+                            mode,
+                            event,
+                            defaults,
+                            active_player_count,
+                            streamlit,
+                        )
                     result, limits = calculate_assignments(
                         mode,
                         players,
                         assignment_module,
                         event_capacity=event_capacity,
                         signup_count=signup_count,
+                        position_limits=(
+                            position_limits
+                            if mode in ('flexible', 'optimized')
+                            else None
+                        ),
                     )
                 except (OSError, RuntimeError, ValueError) as error:
                     streamlit.error(f'Could not calculate {mode} assignments: {error}')
