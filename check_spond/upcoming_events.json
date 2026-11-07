@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-04T21:32:28.699689+00:00",
+  "generatedAt": "2026-11-07T14:14:49.529868+00:00",
   "groupId": "9DCF85B7A9B94C5D8D90B9754341E660",
   "identifierMeanings": {
     "groupId": "Opaque Spond identifier for the group queried by this script.",
@@ -20,10 +20,10 @@
   },
   "events": [
     {
-      "id": "46589B3F64964903B7B5D1F9D6D52641",
-      "heading": "Casual",
-      "startTimestamp": "2026-11-05T09:00:00Z",
-      "endTimestamp": "2026-11-05T11:00:00Z",
+      "id": "2AB93505F208483D960FEBD779CC8FBD",
+      "heading": "Unranked Tuesday 3rd Nov 7-9pm Gryphon",
+      "startTimestamp": "2026-11-03T19:00:00Z",
+      "endTimestamp": "2026-11-03T21:00:00Z",
       "people": [
         {
           "id": "799DB2D1EFD14FA7A4767A3B599740AE",
@@ -51,6 +51,143 @@
             "6985006C9EDE499F9219136BF17A49BA": 2,
             "74806AEFD38C450A99707C92BF5CD0A3": 1,
             "7B62F5178AF94D089AC7C5AA07E66F73": 3
+          },
+          "respondent": true
+        },
+        {
+          "id": "917B6508583242EBA74DE3AEA4EC53F3",
+          "clubMembershipId": "DF074CB0B6DC483FB0F7E2316C6E295D",
+          "profile": {
+            "contactMethod": "app",
+            "id": "D307E232076A35BF38EBABAA614F7962",
+            "email": "cvql0576@leeds.ac.uk",
+            "firstName": "Tarik",
+            "lastName": "Gulec",
+            "unableToReach": false
+          },
+          "firstName": "Tarik",
+          "lastName": "Gulec",
+          "email": "cvql0576@leeds.ac.uk",
+          "createdTime": "2025-11-26T17:39:13Z",
+          "guardians": [],
+          "subGroups": [
+            "C7A93464DB0E411180C603F831A960A5"
+          ],
+          "fields": {
+            "2B2750AA5F65467A99E3E83B93153E00": 5,
+            "57D2266300294609BA90B85C5F0E3E89": 4,
+            "6985006C9EDE499F9219136BF17A49BA": 2,
+            "74806AEFD38C450A99707C92BF5CD0A3": 1,
+            "7B62F5178AF94D089AC7C5AA07E66F73": 3
+          },
+          "respondent": true
+        },
+        {
+          "id": "45BBF76CC9ED43D295C40185901DAF5A",
+          "clubMembershipId": "6C147241B0B3424DA7511B2B1CB498F5",
+          "profile": {
+            "contactMethod": "app",
+            "id": "3193FA92FAD16C25068457368A636595",
+            "email": "cyruspullinger@icloud.com",
+            "firstName": "Cyrus",
+            "lastName": "Pullinger",
+            "imageUrl": "https://spond.com/images/8fb/8fb5d7cff7c501fdbcb34aaff62f5d8b.jpeg",
+            "unableToReach": false
+          },
+          "firstName": "Cyrus",
+          "lastName": "Pullinger",
+          "email": "cyruspullinger@icloud.com",
+          "createdTime": "2025-11-02T16:01:33Z",
+          "guardians": [],
+          "subGroups": [
+            "C7A93464DB0E411180C603F831A960A5"
+          ],
+          "fields": {
+            "74806AEFD38C450A99707C92BF5CD0A3": 1
+          },
+          "respondent": true
+        },
+        {
+          "id": "68EF55DF991A448B9A44A849F7AAFEBC",
+          "clubMembershipId": "B10F84A61F5848B09F9F7C50AAA5DE8E",
+          "profile": {
+            "contactMethod": "app",
+            "id": "273F8428AC5FBA3CCCCA46079AF5B8B6",
+            "email": "matteo.a@btinternet.com",
+            "firstName": "Matteo",
+            "lastName": "Booth",
+            "imageUrl": "https://spond.com/images/e75/e7515c8f8434823f54a48f99e9259094.jpeg",
+            "unableToReach": false
+          },
+          "firstName": "Matteo",
+          "lastName": "Booth",
+          "email": "matteo.a@btinternet.com",
+          "createdTime": "2026-09-07T18:33:01Z",
+          "guardians": [],
+          "subGroups": [
+            "C7A93464DB0E411180C603F831A960A5"
+          ],
+          "fields": {
+            "57D2266300294609BA90B85C5F0E3E89": 1
+          },
+          "respondent": true
+        },
+        {
+          "id": "3B4D7CD240D945B1B78E6AF99781B61C",
+          "clubMembershipId": "E39B33ACE51242F286A61F1234E6327D",
+          "profile": {
+            "contactMethod": "app",
+            "id": "D9656A24C42A5F493CCF41C07B2FD723",
+            "email": "176067zz@gmail.com",
+            "firstName": "Yuze",
+            "lastName": "Zhang",
+            "phoneNumber": "+447519600322",
+            "unableToReach": false
+          },
+          "firstName": "Yuze",
+          "lastName": "Zhang",
+          "email": "176067zz@gmail.com",
+          "phoneNumber": "+447519600322",
+          "createdTime": "2026-05-30T21:51:42Z",
+          "guardians": [],
+          "subGroups": [
+            "C7A93464DB0E411180C603F831A960A5"
+          ],
+          "fields": {
+            "2B2750AA5F65467A99E3E83B93153E00": 4,
+            "57D2266300294609BA90B85C5F0E3E89": 4,
+            "6985006C9EDE499F9219136BF17A49BA": 3,
+            "74806AEFD38C450A99707C92BF5CD0A3": 1,
+            "7B62F5178AF94D089AC7C5AA07E66F73": 5
+          },
+          "respondent": true
+        },
+        {
+          "id": "AE315B32A4EC48048DB106CA4DC54C99",
+          "clubMembershipId": "C2DE32E99E8244CB96348367BD52555F",
+          "profile": {
+            "contactMethod": "app",
+            "id": "77A4D39C3592153580561791DE216C59",
+            "email": "hnng0202@leeds.ac.uk",
+            "firstName": "Abdulaziz",
+            "lastName": "Aldawsari",
+            "imageUrl": "https://spond.com/images/bcf/bcf08cf2612047dda2024e0e77d35fb7.jpeg",
+            "unableToReach": false
+          },
+          "firstName": "Abdulaziz",
+          "lastName": "Aldawsari",
+          "email": "hnng0202@leeds.ac.uk",
+          "createdTime": "2025-10-22T22:33:31Z",
+          "guardians": [],
+          "subGroups": [
+            "C7A93464DB0E411180C603F831A960A5"
+          ],
+          "fields": {
+            "2B2750AA5F65467A99E3E83B93153E00": 4,
+            "57D2266300294609BA90B85C5F0E3E89": 3,
+            "6985006C9EDE499F9219136BF17A49BA": 2,
+            "74806AEFD38C450A99707C92BF5CD0A3": 1,
+            "7B62F5178AF94D089AC7C5AA07E66F73": 5
           },
           "respondent": true
         },
@@ -83,31 +220,144 @@
           "respondent": true
         },
         {
-          "id": "AE315B32A4EC48048DB106CA4DC54C99",
-          "clubMembershipId": "C2DE32E99E8244CB96348367BD52555F",
+          "id": "0BEC35CA1B674ACFA0875CD1069EC838",
+          "clubMembershipId": "7A78254DA9E44E1FB1C8750774ECCE49",
           "profile": {
             "contactMethod": "app",
-            "id": "77A4D39C3592153580561791DE216C59",
-            "email": "hnng0202@leeds.ac.uk",
-            "firstName": "Abdulaziz",
-            "lastName": "Aldawsari",
-            "imageUrl": "https://spond.com/images/bcf/bcf08cf2612047dda2024e0e77d35fb7.jpeg",
+            "id": "0BB5F57C7BC27C43F804F00871732D08",
+            "email": "sidthekidstone@gmail.com",
+            "firstName": "Sid",
+            "lastName": "Stone",
             "unableToReach": false
           },
-          "firstName": "Abdulaziz",
-          "lastName": "Aldawsari",
-          "email": "hnng0202@leeds.ac.uk",
-          "createdTime": "2025-10-22T22:33:31Z",
+          "firstName": "Sid",
+          "lastName": "Stone",
+          "email": "sidthekidstone@gmail.com",
+          "createdTime": "2026-02-23T19:30:47Z",
+          "guardians": [],
+          "subGroups": [
+            "C7A93464DB0E411180C603F831A960A5"
+          ],
+          "fields": {
+            "2B2750AA5F65467A99E3E83B93153E00": 5,
+            "57D2266300294609BA90B85C5F0E3E89": 3,
+            "6985006C9EDE499F9219136BF17A49BA": 2,
+            "74806AEFD38C450A99707C92BF5CD0A3": 1,
+            "7B62F5178AF94D089AC7C5AA07E66F73": 4
+          },
+          "respondent": true
+        },
+        {
+          "id": "9A9FF27FA47B430B96260FDFDAD75F5F",
+          "clubMembershipId": "CD2D66CDF9C640F29BE725323E12C0AF",
+          "profile": {
+            "contactMethod": "app",
+            "id": "D5CAA7BAD2F3E65C4596D66C8A59A560",
+            "email": "jkazanietz@outlook.com",
+            "firstName": "Julian",
+            "lastName": "D’agostino",
+            "imageUrl": "https://spond.com/images/be8/be873752611164f8cc572687b0883efa.jpeg",
+            "phoneNumber": "+447375515994",
+            "unableToReach": false
+          },
+          "firstName": "Julian",
+          "lastName": "D’agostino",
+          "email": "jkazanietz@outlook.com",
+          "phoneNumber": "+447375515994",
+          "createdTime": "2023-11-20T22:55:22Z",
           "guardians": [],
           "subGroups": [
             "C7A93464DB0E411180C603F831A960A5"
           ],
           "fields": {
             "2B2750AA5F65467A99E3E83B93153E00": 4,
-            "57D2266300294609BA90B85C5F0E3E89": 3,
-            "6985006C9EDE499F9219136BF17A49BA": 2,
+            "57D2266300294609BA90B85C5F0E3E89": 5,
+            "6985006C9EDE499F9219136BF17A49BA": 3,
+            "74806AEFD38C450A99707C92BF5CD0A3": 2,
+            "7B62F5178AF94D089AC7C5AA07E66F73": 1
+          },
+          "respondent": true
+        },
+        {
+          "id": "3A391CD2CD664F0880B57FA1CA1CCC7D",
+          "clubMembershipId": "D285F04E8FBA421293730D7523492A75",
+          "profile": {
+            "contactMethod": "app",
+            "id": "8667DCC69B38EF9F5785D5AC54A89932",
+            "firstName": "Gabriel",
+            "lastName": "Branzei",
+            "phoneNumber": "+447852352351",
+            "unableToReach": false
+          },
+          "firstName": "Gabriel",
+          "lastName": "Branzei",
+          "phoneNumber": "+447852352351",
+          "createdTime": "2024-11-28T15:34:31Z",
+          "guardians": [],
+          "subGroups": [
+            "C7A93464DB0E411180C603F831A960A5"
+          ],
+          "fields": {
+            "2B2750AA5F65467A99E3E83B93153E00": 3,
+            "57D2266300294609BA90B85C5F0E3E89": 5,
+            "6985006C9EDE499F9219136BF17A49BA": 4,
             "74806AEFD38C450A99707C92BF5CD0A3": 1,
-            "7B62F5178AF94D089AC7C5AA07E66F73": 5
+            "7B62F5178AF94D089AC7C5AA07E66F73": 2
+          },
+          "respondent": true
+        },
+        {
+          "id": "AC40066C464A4196A74F6E77E2F80016",
+          "clubMembershipId": "93B8B1A31BC64C22994B8D4CA6735A20",
+          "profile": {
+            "contactMethod": "app",
+            "id": "BB46684F4700E3096BA0239515E198EF",
+            "email": "eloise.vint@hotmail.com",
+            "firstName": "Eloise",
+            "lastName": "Vint",
+            "unableToReach": false
+          },
+          "firstName": "Eloise",
+          "lastName": "Vint",
+          "email": "eloise.vint@hotmail.com",
+          "createdTime": "2024-05-07T17:17:55Z",
+          "guardians": [],
+          "subGroups": [
+            "C7A93464DB0E411180C603F831A960A5"
+          ],
+          "fields": {
+            "2B2750AA5F65467A99E3E83B93153E00": 1,
+            "57D2266300294609BA90B85C5F0E3E89": 5,
+            "6985006C9EDE499F9219136BF17A49BA": 4,
+            "74806AEFD38C450A99707C92BF5CD0A3": 2,
+            "7B62F5178AF94D089AC7C5AA07E66F73": 3
+          },
+          "respondent": true
+        },
+        {
+          "id": "808AB0640BED4F0D92E8B5534C6AD1B0",
+          "clubMembershipId": "96D2935824CE46198B17C7576F595822",
+          "profile": {
+            "contactMethod": "app",
+            "id": "FEB9032470B4EEDFEC0EDAE2466E740C",
+            "email": "idrishassan963@gmail.com",
+            "firstName": "Idris",
+            "lastName": "Hassan",
+            "imageUrl": "https://spond.com/images/769/769d338d826fceee8b2171f3bda56dc2.jpeg",
+            "unableToReach": false
+          },
+          "firstName": "Idris",
+          "lastName": "Hassan",
+          "email": "idrishassan963@gmail.com",
+          "createdTime": "2026-10-28T15:31:03Z",
+          "guardians": [],
+          "subGroups": [
+            "C7A93464DB0E411180C603F831A960A5"
+          ],
+          "imageUrl": "https://spond.com/images/604/6048d270c4333e91c080cc506b561579.jpeg",
+          "fields": {
+            "2B2750AA5F65467A99E3E83B93153E00": 1,
+            "74806AEFD38C450A99707C92BF5CD0A3": 2
           },
           "respondent": true
         },
@@ -144,30 +394,429 @@
           "respondent": true
         },
         {
-          "id": "3A391CD2CD664F0880B57FA1CA1CCC7D",
-          "clubMembershipId": "D285F04E8FBA421293730D7523492A75",
+          "id": "DBF19D5A2F1C4BBCA8A593D400D0EBAB",
+          "clubMembershipId": "00DA0175265045ED98F4212A6BE4162B",
           "profile": {
             "contactMethod": "app",
-            "id": "8667DCC69B38EF9F5785D5AC54A89932",
-            "firstName": "Gabriel",
-            "lastName": "Branzei",
-            "phoneNumber": "+447852352351",
+            "id": "328891C20385A4CCEFAFE03EF33013B4",
+            "firstName": "Dylan",
+            "lastName": "Low",
+            "imageUrl": "https://spond.com/images/133/1332491ee3d2637797fcb573ca169335.jpeg",
+            "phoneNumber": "+447435258856",
             "unableToReach": false
           },
-          "firstName": "Gabriel",
-          "lastName": "Branzei",
-          "phoneNumber": "+447852352351",
-          "createdTime": "2024-11-28T15:34:31Z",
+          "firstName": "Dylan",
+          "lastName": "Low",
+          "phoneNumber": "+447435258856",
+          "createdTime": "2023-02-26T19:52:04Z",
+          "guardians": [],
+          "subGroups": [
+            "C7A93464DB0E411180C603F831A960A5"
+          ],
+          "fields": {
+            "2B2750AA5F65467A99E3E83B93153E00": 2,
+            "57D2266300294609BA90B85C5F0E3E89": 4,
+            "6985006C9EDE499F9219136BF17A49BA": 3,
+            "74806AEFD38C450A99707C92BF5CD0A3": 1,
+            "7B62F5178AF94D089AC7C5AA07E66F73": 5
+          },
+          "respondent": true
+        },
+        {
+          "id": "8430F1DB1F43472CAC0A8570AEA70333",
+          "clubMembershipId": "8FE50F8375CA4669AAB9924DE7AB3358",
+          "profile": {
+            "contactMethod": "app",
+            "id": "AD430B0C5479D3C33887BBBE3514D84B",
+            "email": "djwk0410@leeds.ac.uk",
+            "firstName": "Mohammed",
+            "lastName": "Alyafei",
+            "unableToReach": false
+          },
+          "firstName": "Mohammed",
+          "lastName": "Alyafei",
+          "email": "djwk0410@leeds.ac.uk",
+          "createdTime": "2025-10-30T14:45:51Z",
+          "guardians": [],
+          "subGroups": [
+            "C7A93464DB0E411180C603F831A960A5"
+          ],
+          "fields": {
+            "2B2750AA5F65467A99E3E83B93153E00": 2,
+            "57D2266300294609BA90B85C5F0E3E89": 5,
+            "6985006C9EDE499F9219136BF17A49BA": 3,
+            "74806AEFD38C450A99707C92BF5CD0A3": 1,
+            "7B62F5178AF94D089AC7C5AA07E66F73": 4
+          },
+          "respondent": true
+        },
+        {
+          "id": "E4A36417276B47D5B0C0C1605CE3C91F",
+          "clubMembershipId": "6AE42235124547AFB92A64677DCF6D8C",
+          "profile": {
+            "contactMethod": "app",
+            "id": "169E81EEB15C53F0D9D787B4C6D99C5A",
+            "email": "malachi.alradhi@gmail.com",
+            "firstName": "Malachi",
+            "lastName": "Al-Radhi",
+            "imageUrl": "https://spond.com/images/463/46339afb67a4e6641d72aed702a7ccfe.jpeg",
+            "unableToReach": false
+          },
+          "firstName": "Malachi",
+          "lastName": "Al-Radhi",
+          "email": "malachi.alradhi@gmail.com",
+          "createdTime": "2025-01-20T17:24:17Z",
+          "guardians": [],
+          "subGroups": [
+            "C7A93464DB0E411180C603F831A960A5"
+          ],
+          "fields": {
+            "2B2750AA5F65467A99E3E83B93153E00": 5,
+            "57D2266300294609BA90B85C5F0E3E89": 2,
+            "6985006C9EDE499F9219136BF17A49BA": 1,
+            "74806AEFD38C450A99707C92BF5CD0A3": 3,
+            "7B62F5178AF94D089AC7C5AA07E66F73": 4
+          },
+          "respondent": true
+        },
+        {
+          "id": "EB7921057F85401DB0F7BAACE7DD9A23",
+          "clubMembershipId": "8C2A8AFE6C1347EAB994B04851200FA0",
+          "profile": {
+            "contactMethod": "app",
+            "id": "8CABB918690B8C3EAE6BFD7435B0D509",
+            "email": "kchapmanbright@gmail.com",
+            "firstName": "Kodi",
+            "lastName": "Chapman-Bright",
+            "unableToReach": false
+          },
+          "firstName": "Kodi",
+          "lastName": "Chapman-Bright",
+          "email": "kchapmanbright@gmail.com",
+          "createdTime": "2025-11-24T21:03:06Z",
+          "guardians": [],
+          "subGroups": [
+            "C7A93464DB0E411180C603F831A960A5"
+          ],
+          "fields": {
+            "57D2266300294609BA90B85C5F0E3E89": 1
+          },
+          "respondent": true
+        },
+        {
+          "id": "D5D47D23973249BEA09A307620575AF5",
+          "clubMembershipId": "1136D5F9A81D4359B75347F076F52584",
+          "profile": {
+            "contactMethod": "app",
+            "id": "9474490C11669D3C5E9E6E335D8D9398",
+            "email": "prpr0275@leeds.ac.uk",
+            "firstName": "Theo",
+            "lastName": "Marchant",
+            "imageUrl": "https://spond.com/images/06d/06da7f514933e38718fd68a5039f2b31.jpeg",
+            "unableToReach": false
+          },
+          "firstName": "Theo",
+          "lastName": "Marchant",
+          "email": "prpr0275@leeds.ac.uk",
+          "createdTime": "2026-01-18T12:11:33Z",
+          "guardians": [],
+          "subGroups": [
+            "C7A93464DB0E411180C603F831A960A5"
+          ],
+          "imageUrl": "https://spond.com/images/b5a/b5aa07a1b9d0154a58d29dacd7aa6fd2.jpeg",
+          "fields": {
+            "2B2750AA5F65467A99E3E83B93153E00": 5,
+            "57D2266300294609BA90B85C5F0E3E89": 1,
+            "6985006C9EDE499F9219136BF17A49BA": 3,
+            "74806AEFD38C450A99707C92BF5CD0A3": 2,
+            "7B62F5178AF94D089AC7C5AA07E66F73": 4
+          },
+          "respondent": true
+        },
+        {
+          "id": "E87693435BED4902B2D08F7B7109F418",
+          "clubMembershipId": "1BA2587C1C384345B84596C1BBB2302E",
+          "profile": {
+            "contactMethod": "app",
+            "id": "4D4561DD00BE2C82A12831C28B6E6B40",
+            "email": "ramaalrawi75@gmail.com",
+            "firstName": "Rama",
+            "lastName": "Alrawi",
+            "unableToReach": false
+          },
+          "firstName": "Rama",
+          "lastName": "Alrawi",
+          "email": "ramaalrawi75@gmail.com",
+          "createdTime": "2026-06-05T20:32:52Z",
+          "guardians": [],
+          "subGroups": [
+            "C7A93464DB0E411180C603F831A960A5",
+            "DE43AAE0AC244A9C85300E8E339162C5"
+          ],
+          "fields": {
+            "2B2750AA5F65467A99E3E83B93153E00": 4,
+            "57D2266300294609BA90B85C5F0E3E89": 5,
+            "6985006C9EDE499F9219136BF17A49BA": 5,
+            "74806AEFD38C450A99707C92BF5CD0A3": 3,
+            "7B62F5178AF94D089AC7C5AA07E66F73": 1
+          },
+          "respondent": true
+        },
+        {
+          "id": "B451DBC33B5E4C1EB52C98DF7F51E0D1",
+          "clubMembershipId": "79DF640CDC8B4E8886000FAFB16721C0",
+          "profile": {
+            "contactMethod": "app",
+            "id": "5B18D0FF6D09F6E50B6B0C0F5A1E89F6",
+            "email": "ryanrockab@gmail.com",
+            "firstName": "Ryan",
+            "lastName": "Broomhead",
+            "imageUrl": "https://spond.com/images/424/4241729c358caffefb3528dfb5587c94.jpeg",
+            "unableToReach": false
+          },
+          "firstName": "Ryan",
+          "lastName": "Broomhead",
+          "email": "ryanrockab@gmail.com",
+          "createdTime": "2025-11-02T11:35:20Z",
           "guardians": [],
           "subGroups": [
             "C7A93464DB0E411180C603F831A960A5"
           ],
           "fields": {
             "2B2750AA5F65467A99E3E83B93153E00": 3,
-            "57D2266300294609BA90B85C5F0E3E89": 5,
+            "57D2266300294609BA90B85C5F0E3E89": 2,
             "6985006C9EDE499F9219136BF17A49BA": 4,
             "74806AEFD38C450A99707C92BF5CD0A3": 1,
-            "7B62F5178AF94D089AC7C5AA07E66F73": 2
+            "7B62F5178AF94D089AC7C5AA07E66F73": 4
+          },
+          "respondent": true
+        },
+        {
+          "id": "A1239779CF4449FEAF3E8468940F471D",
+          "clubMembershipId": "C2990905176B4C49B39C0C9E7A8053E4",
+          "profile": {
+            "contactMethod": "app",
+            "id": "2F4B67B27E960E53862C0E676B6A1AD0",
+            "email": "cgfs0425@leeds.ac.uk",
+            "firstName": "masa",
+            "lastName": "",
+            "imageUrl": "https://spond.com/images/10a/10ab68cf720a2ba51ebd181bffe3d6d2.jpeg",
+            "unableToReach": false
+          },
+          "firstName": "Qihao",
+          "lastName": "Li",
+          "email": "cgfs0425@leeds.ac.uk",
+          "createdTime": "2026-10-27T22:14:19Z",
+          "guardians": [],
+          "subGroups": [
+            "C7A93464DB0E411180C603F831A960A5"
+          ],
+          "fields": {
+            "2B2750AA5F65467A99E3E83B93153E00": 1,
+            "57D2266300294609BA90B85C5F0E3E89": 5,
+            "6985006C9EDE499F9219136BF17A49BA": 2,
+            "74806AEFD38C450A99707C92BF5CD0A3": 3,
+            "7B62F5178AF94D089AC7C5AA07E66F73": 5
+          },
+          "respondent": true
+        }
+      ],
+      "players": {
+        "Bruno Falcone": {
+          "outside": 1,
+          "opposite": 2,
+          "libero": 3,
+          "middle": 4,
+          "setter": 5
+        },
+        "Tarik Gulec": {
+          "outside": 1,
+          "opposite": 2,
+          "libero": 3,
+          "middle": 4,
+          "setter": 5
+        },
+        "Cyrus Pullinger": {
+          "outside": 1
+        },
+        "Matteo Booth": {
+          "middle": 1
+        },
+        "Yuze Zhang": {
+          "outside": 1,
+          "opposite": 3,
+          "setter": 4,
+          "middle": 4,
+          "libero": 5
+        },
+        "Abdulaziz Aldawsari": {
+          "outside": 1,
+          "opposite": 2,
+          "middle": 3,
+          "setter": 4,
+          "libero": 5
+        },
+        "Ben Hardwick": {
+          "outside": 1,
+          "opposite": 2,
+          "setter": 3,
+          "middle": 4,
+          "libero": 5
+        },
+        "Sid Stone": {
+          "outside": 1,
+          "opposite": 2,
+          "middle": 3,
+          "libero": 4,
+          "setter": 5
+        },
+        "Julian D’agostino": {
+          "libero": 1,
+          "outside": 2,
+          "opposite": 3,
+          "setter": 4,
+          "middle": 5
+        },
+        "Gabriel Branzei": {
+          "outside": 1,
+          "libero": 2,
+          "setter": 3,
+          "opposite": 4,
+          "middle": 5
+        },
+        "Eloise Vint": {
+          "setter": 1,
+          "outside": 2,
+          "libero": 3,
+          "opposite": 4,
+          "middle": 5
+        },
+        "Idris Hassan": {
+          "setter": 1,
+          "outside": 2
+        },
+        "abigail Osoba": {
+          "outside": 1,
+          "libero": 2,
+          "middle": 3,
+          "opposite": 4,
+          "setter": 5
+        },
+        "Dylan Low": {
+          "outside": 1,
+          "setter": 2,
+          "opposite": 3,
+          "middle": 4,
+          "libero": 5
+        },
+        "Mohammed Alyafei": {
+          "outside": 1,
+          "setter": 2,
+          "opposite": 3,
+          "libero": 4,
+          "middle": 5
+        },
+        "Malachi Al-Radhi": {
+          "opposite": 1,
+          "middle": 2,
+          "outside": 3,
+          "libero": 4,
+          "setter": 5
+        },
+        "Kodi Chapman-Bright": {
+          "middle": 1
+        },
+        "Theo Marchant": {
+          "middle": 1,
+          "outside": 2,
+          "opposite": 3,
+          "libero": 4,
+          "setter": 5
+        },
+        "Rama Alrawi": {
+          "libero": 1,
+          "outside": 3,
+          "setter": 4,
+          "middle": 5,
+          "opposite": 5
+        },
+        "Ryan Broomhead": {
+          "outside": 1,
+          "middle": 2,
+          "setter": 3,
+          "opposite": 4,
+          "libero": 4
+        },
+        "Qihao Li": {
+          "setter": 1,
+          "opposite": 2,
+          "outside": 3,
+          "middle": 5,
+          "libero": 5
+        }
+      }
+    },
+    {
+      "id": "46589B3F64964903B7B5D1F9D6D52641",
+      "heading": "Casual",
+      "startTimestamp": "2026-11-05T09:00:00Z",
+      "endTimestamp": "2026-11-05T11:00:00Z",
+      "people": [
+        {
+          "id": "799DB2D1EFD14FA7A4767A3B599740AE",
+          "clubMembershipId": "13AA2B330FA54EF0A65CC7EF06C709CB",
+          "profile": {
+            "contactMethod": "app",
+            "id": "FB686CB1C8AFF8C18FE94E58AE041676",
+            "firstName": "Bruno",
+            "lastName": "Falcone",
+            "unableToReach": false
+          },
+          "firstName": "Bruno",
+          "lastName": "Falcone",
+          "createdTime": "2026-05-29T10:25:58Z",
+          "guardians": [],
+          "subGroups": [
+            "C7A93464DB0E411180C603F831A960A5"
+          ],
+          "roles": [
+            "26643BEA070749D792B93C08487DE7A8"
+          ],
+          "fields": {
+            "2B2750AA5F65467A99E3E83B93153E00": 5,
+            "57D2266300294609BA90B85C5F0E3E89": 4,
+            "6985006C9EDE499F9219136BF17A49BA": 2,
+            "74806AEFD38C450A99707C92BF5CD0A3": 1,
+            "7B62F5178AF94D089AC7C5AA07E66F73": 3
+          },
+          "respondent": true
+        },
+        {
+          "id": "AE315B32A4EC48048DB106CA4DC54C99",
+          "clubMembershipId": "C2DE32E99E8244CB96348367BD52555F",
+          "profile": {
+            "contactMethod": "app",
+            "id": "77A4D39C3592153580561791DE216C59",
+            "email": "hnng0202@leeds.ac.uk",
+            "firstName": "Abdulaziz",
+            "lastName": "Aldawsari",
+            "imageUrl": "https://spond.com/images/bcf/bcf08cf2612047dda2024e0e77d35fb7.jpeg",
+            "unableToReach": false
+          },
+          "firstName": "Abdulaziz",
+          "lastName": "Aldawsari",
+          "email": "hnng0202@leeds.ac.uk",
+          "createdTime": "2025-10-22T22:33:31Z",
+          "guardians": [],
+          "subGroups": [
+            "C7A93464DB0E411180C603F831A960A5"
+          ],
+          "fields": {
+            "2B2750AA5F65467A99E3E83B93153E00": 4,
+            "57D2266300294609BA90B85C5F0E3E89": 3,
+            "6985006C9EDE499F9219136BF17A49BA": 2,
+            "74806AEFD38C450A99707C92BF5CD0A3": 1,
+            "7B62F5178AF94D089AC7C5AA07E66F73": 5
           },
           "respondent": true
         },
@@ -252,34 +901,6 @@
           "respondent": true
         },
         {
-          "id": "0BEC35CA1B674ACFA0875CD1069EC838",
-          "clubMembershipId": "7A78254DA9E44E1FB1C8750774ECCE49",
-          "profile": {
-            "contactMethod": "app",
-            "id": "0BB5F57C7BC27C43F804F00871732D08",
-            "email": "sidthekidstone@gmail.com",
-            "firstName": "Sid",
-            "lastName": "Stone",
-            "unableToReach": false
-          },
-          "firstName": "Sid",
-          "lastName": "Stone",
-          "email": "sidthekidstone@gmail.com",
-          "createdTime": "2026-02-23T19:30:47Z",
-          "guardians": [],
-          "subGroups": [
-            "C7A93464DB0E411180C603F831A960A5"
-          ],
-          "fields": {
-            "2B2750AA5F65467A99E3E83B93153E00": 5,
-            "57D2266300294609BA90B85C5F0E3E89": 3,
-            "6985006C9EDE499F9219136BF17A49BA": 2,
-            "74806AEFD38C450A99707C92BF5CD0A3": 1,
-            "7B62F5178AF94D089AC7C5AA07E66F73": 4
-          },
-          "respondent": true
-        },
-        {
           "id": "076EC63FFA224EBB933DB30F07703FB6",
           "clubMembershipId": "8687968C51894B00A30D648360D4C486",
           "profile": {
@@ -296,7 +917,9 @@
           "phoneNumber": "+447464324204",
           "createdTime": "2024-08-09T20:08:12Z",
           "guardians": [],
-          "subGroups": [],
+          "subGroups": [
+            "C7A93464DB0E411180C603F831A960A5"
+          ],
           "fields": {
             "2B2750AA5F65467A99E3E83B93153E00": 3,
             "57D2266300294609BA90B85C5F0E3E89": 5,
@@ -322,7 +945,9 @@
           "email": "wferreira@live.com",
           "createdTime": "2026-03-11T08:00:29Z",
           "guardians": [],
-          "subGroups": [],
+          "subGroups": [
+            "C7A93464DB0E411180C603F831A960A5"
+          ],
           "fields": {},
           "respondent": true
         },
@@ -380,33 +1005,12 @@
           "middle": 4,
           "setter": 5
         },
-        "Ben Hardwick": {
-          "outside": 1,
-          "opposite": 2,
-          "setter": 3,
-          "middle": 4,
-          "libero": 5
-        },
         "Abdulaziz Aldawsari": {
           "outside": 1,
           "opposite": 2,
           "middle": 3,
           "setter": 4,
           "libero": 5
-        },
-        "abigail Osoba": {
-          "outside": 1,
-          "libero": 2,
-          "middle": 3,
-          "opposite": 4,
-          "setter": 5
-        },
-        "Gabriel Branzei": {
-          "outside": 1,
-          "libero": 2,
-          "setter": 3,
-          "opposite": 4,
-          "middle": 5
         },
         "Hamza Mansour": {
           "outside": 1,
@@ -422,13 +1026,6 @@
           "middle": 3,
           "setter": 4,
           "libero": 5
-        },
-        "Sid Stone": {
-          "outside": 1,
-          "opposite": 2,
-          "middle": 3,
-          "libero": 4,
-          "setter": 5
         },
         "Severin Dewhirst-Bell": {
           "opposite": 1,

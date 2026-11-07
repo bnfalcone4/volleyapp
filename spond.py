@@ -1,6 +1,6 @@
 """Assign Spond sign-ups to volleyball positions.
 
-The module supports ranked, signup-order flexible, and Hungarian assignments.
+The module supports ranked, signup-order flexible, and optimized assignments.
 Its command-line interface accepts either a Spond CSV export or cached event
 preferences; assignment helpers return player assignments and waiting lists,
 while the ``run_*`` helpers and CLI print results. Submitted preference scores
@@ -345,7 +345,7 @@ def assign_hungarian(players, minimums):
         from munkres import Munkres
     except ImportError as error:
         raise RuntimeError(
-            'Hungarian mode requires the munkres package. Install it with '
+            'Optimized mode requires the munkres package. Install it with '
             '`python -m pip install munkres`.'
         ) from error
 
@@ -503,8 +503,8 @@ def run_flexible(df, minimums):
     print_preference_rank_totals(assignments)
 
 
-def run_hungarian(df, minimums):
-    """Assign a Spond DataFrame with Hungarian optimization and print results.
+def run_optimized(df, minimums):
+    """Assign a Spond DataFrame with preference optimization and print results.
 
     Args:
         df: DataFrame with player names and preference-rank columns.
@@ -525,7 +525,7 @@ def run_hungarian(df, minimums):
     assignments, waiting = assign_hungarian(players, minimums)
     counts = {position: 0 for position in FLEXIBLE_LIMITS}
 
-    print('Hungarian assignments (preference-optimized):')
+    print('Optimized assignments:')
     for number, (name, position, rank) in enumerate(assignments, start=1):
         counts[position] += 1
         score = rank if rank is not None else 'no preference'
@@ -546,7 +546,7 @@ def run_hungarian(df, minimums):
 
 
 def sort_signups(df, print_frames=False):
-    """Order sign-ups for ranked/Hungarian assignment and normalize ranks.
+    """Order sign-ups for ranked/optimized assignment and normalize ranks.
 
     Args:
         df: Spond sign-up DataFrame containing names and preference columns.
@@ -599,9 +599,9 @@ def main():
     )
     parser.add_argument(
         '--mode',
-        choices=('ranked', 'flexible', 'hungarian'),
+        choices=('ranked', 'flexible', 'optimized'),
         default='ranked',
-        help='Use ranked, signup-order flexible, or preference-optimized assignment',
+        help='Use ranked, signup-order flexible, or optimized assignment',
     )
     parser.add_argument(
         '--minimums-csv',
@@ -627,13 +627,13 @@ def main():
         parser.error('csv_file is required unless --preferences-json is provided.')
     df = normalize_preference_columns(pd.read_csv(args.csv_file))
 
-    if args.mode in ('flexible', 'hungarian'):
+    if args.mode in ('flexible', 'optimized'):
         total = min(len(df), EVENT_CAPACITY)
         minimums = load_minimums(args.minimums_csv, total)
         if args.mode == 'flexible':
             run_flexible(df, minimums)
         else:
-            run_hungarian(sort_signups(df), minimums)
+            run_optimized(sort_signups(df), minimums)
         return
 
     setter_col = PREFERENCE_COLUMNS['setter']
