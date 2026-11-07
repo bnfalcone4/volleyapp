@@ -143,6 +143,36 @@ def assignment_rows(mode, result, players):
     return rows, waiting_rows
 
 
+def cascade_rows(assignments, waiting, players):
+    """Return assigned players waiting for a better-ranked position.
+
+    Players are returned in signup order, and only blocked preferences ranked
+    higher than their current assignment are included.
+    """
+    assigned_positions = {
+        name: position for name, position, _ in assignments
+    }
+    waiting_positions = dict(waiting)
+    cascade = []
+    for name, preferences in players.items():
+        if name not in assigned_positions:
+            continue
+        current_position = assigned_positions[name]
+        current_rank = preferences.get(current_position)
+        improvements = [
+            (position, preferences[position])
+            for position in waiting_positions.get(name, [])
+            if position in preferences
+            and (
+                current_rank is None
+                or preferences[position] < current_rank
+            )
+        ]
+        if improvements:
+            cascade.append((name, improvements))
+    return cascade
+
+
 def display_assignments(
     assignments,
     waiting,
@@ -151,6 +181,7 @@ def display_assignments(
     assignment_module,
     streamlit=None,
     visualization='positions',
+    cascade=(),
 ):
     """Render assignments in position or signup order, plus assignment totals.
 
@@ -165,6 +196,7 @@ def display_assignments(
             printed to the terminal.
         visualization: ``positions`` to group by position or ``order`` to list
             assignments in signup order.
+        cascade: Assigned players and their blocked, better-ranked positions.
 
     Returns:
         None. Writes the result to Streamlit or standard output.
@@ -247,15 +279,23 @@ def display_assignments(
         else:
             write('Nobody waiting.')
 
+    if cascade:
+        write('')
+        markdown('**Cascade:**' if streamlit else 'Cascade:')
+        for full_name, improvements in cascade:
+            name = first_name_label(full_name, counts, seen)
+            positions = ', '.join(position for position, _ in improvements)
+            write(f'{name} — {positions}')
+
     write('')
-    markdown('**Position totals**' if streamlit else 'Position totals:')
+    markdown('**Position totals:**' if streamlit else 'Position totals:')
     for position, (minimum, maximum) in limits.items():
         total = sum(row[1] == position for row in assignments)
         write(f'{position}: {total} (min {minimum}, max {maximum})')
 
     write('')
     rank_totals, rank_total = assignment_module.preference_rank_totals(assignments)
-    markdown('**Preference rank totals**' if streamlit else 'Preference rank totals:')
+    markdown('**Preference rank totals:**' if streamlit else 'Preference rank totals:')
     for rank, total in rank_totals.items():
         write(f'Rank {rank}: {total}')
     write(f'Total: {rank_total}')
@@ -341,6 +381,8 @@ def display_event(event, assignment_module, streamlit=None):
             visualization_key,
             'positions',
         )
+        cascade_key = f'show_cascade:{event.get("id", "event")}'
+        show_cascade = streamlit.session_state.get(cascade_key, 'no') == 'yes'
         tabs = streamlit.tabs([mode.title() for mode in ASSIGNMENT_MODES])
         for mode, tab in zip(ASSIGNMENT_MODES, tabs):
             with tab:
@@ -371,6 +413,11 @@ def display_event(event, assignment_module, streamlit=None):
                     assignment_module,
                     streamlit=streamlit,
                     visualization=visualization,
+                    cascade=(
+                        cascade_rows(assignments, waiting, players)
+                        if show_cascade and mode == 'ranked'
+                        else ()
+                    ),
                 )
         streamlit.markdown('**Visualize by:**')
         streamlit.radio(
@@ -380,6 +427,15 @@ def display_event(event, assignment_module, streamlit=None):
             horizontal=True,
             label_visibility='collapsed',
             key=visualization_key,
+        )
+        streamlit.markdown('**Show cascade:**')
+        streamlit.radio(
+            'Show cascade',
+            ('no', 'yes'),
+            format_func=str.title,
+            horizontal=True,
+            label_visibility='collapsed',
+            key=cascade_key,
         )
         return
 

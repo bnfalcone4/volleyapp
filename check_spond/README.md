@@ -51,4 +51,6 @@ Use **Edit attendance** to check or uncheck players; the first 21 players start
 checked and players beyond the event capacity (initially waiting) start
 unchecked. Each checkbox change immediately recalculates all assignment lists.
 In the Streamlit app, **List visualization** defaults to **Positions** and can
-be switched to **Order** to show assignments in signup order.
+be switched to **Order** to show assignments in signup order. The **Show
+cascade** option displays Ranked-mode players' blocked preferences when those
+positions have a better rank than their assigned position.
