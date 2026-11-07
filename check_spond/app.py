@@ -4,6 +4,7 @@ The app fetches upcoming events, normalizes assignment results for the three
 supported modes, and renders assignments, waiting lists, and position totals.
 """
 
+import argparse
 import asyncio
 import hmac
 import importlib.util
@@ -13,7 +14,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-ASSIGNMENT_MODES = ('ranked', 'flexible', 'hungarian')
+ASSIGNMENT_MODES = ('ranked', 'flexible', 'optimized')
+MIN_PLAYERS_FOR_FLEXIBLE_ASSIGNMENT = 12
 
 
 def load_fetch_module():
@@ -80,7 +82,7 @@ def calculate_assignments(mode, players, assignment_module):
 
     Args:
         mode: Assignment algorithm name: ``ranked``, ``flexible``, or
-            ``hungarian``.
+            ``optimized``.
         players: Mapping of full player names to position preference ranks.
         assignment_module: Loaded module providing assignment algorithms and
             position-limit configuration.
@@ -111,7 +113,7 @@ def calculate_assignments(mode, players, assignment_module):
     }
     if mode == 'flexible':
         return assignment_module.assign_flexible(signup_order, minimums), limits
-    if mode == 'hungarian':
+    if mode == 'optimized':
         return assignment_module.assign_hungarian(signup_order, minimums), limits
     raise ValueError(f'Unsupported assignment mode: {mode}.')
 
@@ -148,8 +150,9 @@ def display_assignments(
     players,
     assignment_module,
     streamlit=None,
+    visualization='positions',
 ):
-    """Render assignments, waiting-list preferences, and position totals.
+    """Render assignments in position or signup order, plus assignment totals.
 
     Args:
         assignments: Iterable of (name, position, preference rank) rows.
@@ -160,6 +163,8 @@ def display_assignments(
         assignment_module: Loaded module providing the preference-rank tally.
         streamlit: Optional Streamlit API object. When omitted, output is
             printed to the terminal.
+        visualization: ``positions`` to group by position or ``order`` to list
+            assignments in signup order.
 
     Returns:
         None. Writes the result to Streamlit or standard output.
@@ -172,27 +177,83 @@ def display_assignments(
 
     write = streamlit.write if streamlit else print
     markdown = streamlit.markdown if streamlit else print
-    markdown('**Assignments**' if streamlit else 'Assignments:')
-    for index, (full_name, position, rank) in enumerate(assignments, start=1):
-        first_name = first_name_label(full_name, counts, seen)
-        rank_text = f' (rank {rank})' if rank is not None else ''
-        separator = ' — ' if streamlit else ' - '
-        write(f'{index}. {first_name}{separator}{position}{rank_text}')
+    if visualization == 'positions':
+        position_sections = (
+            ('setter', 'Setters', '👐'),
+            ('middle', 'Middles', '🙌'),
+            ('outside', 'Outsides', '🤚'),
+            ('opposite', 'Oppos', '✋'),
+            ('libero', 'Libs', '👊'),
+        )
+        assignments_by_position = {
+            position: [] for position, _, _ in position_sections
+        }
+        unknown_assignments = []
+        for assignment in assignments:
+            if assignment[1] == 'unknown':
+                unknown_assignments.append(assignment)
+            elif assignment[1] in assignments_by_position:
+                assignments_by_position[assignment[1]].append(assignment)
 
-    markdown('**Waiting list**' if streamlit else 'Waiting list:')
-    if waiting:
-        for full_name, preferences in waiting:
-            first_name = first_name_label(full_name, counts, seen)
-            preference_text = f' — {", ".join(preferences)}' if preferences else ''
-            write(f'{first_name}{preference_text}')
+        for position, label, emoji in position_sections:
+            markdown(f'**{label}: {emoji}**' if streamlit else f'{label}: {emoji}')
+            for index, (full_name, _, rank) in enumerate(
+                assignments_by_position[position], start=1
+            ):
+                name = first_name_label(full_name, counts, seen)
+                rank_text = f'(rank {rank})' if rank is not None else '(no preference)'
+                write(f'{index}. {name} {rank_text}')
+
+        if unknown_assignments:
+            markdown('**Unknown: ❓**' if streamlit else 'Unknown: ❓')
+            for index, (full_name, _, rank) in enumerate(
+                unknown_assignments, start=1
+            ):
+                name = first_name_label(full_name, counts, seen)
+                rank_text = f'(rank {rank})' if rank is not None else '(no preference)'
+                write(f'{index}. {name} {rank_text}')
+
+        assigned_names = {name for name, _, _ in assignments}
+        capacity = assignment_module.EVENT_CAPACITY
+        unassigned_waiting = [
+            (name, preferences)
+            for name, preferences in waiting
+            if len(players) > capacity and name not in assigned_names
+        ]
+        if unassigned_waiting:
+            markdown('**📝 Waitlist:**' if streamlit else '📝 Waitlist:')
+            for full_name, _ in unassigned_waiting:
+                write(first_name_label(full_name, counts, seen))
     else:
-        write('Nobody waiting.')
+        markdown('**Assignments**' if streamlit else 'Assignments:')
+        for index, (full_name, position, rank) in enumerate(assignments, start=1):
+            first_name = first_name_label(full_name, counts, seen)
+            rank_text = f' (rank {rank})' if rank is not None else ''
+            separator = ' — ' if streamlit else ' - '
+            write(f'{index}. {first_name}{separator}{position}{rank_text}')
 
+        markdown('**Waiting list**' if streamlit else 'Waiting list:')
+        assigned_names = {name for name, _, _ in assignments}
+        actual_waiting = [
+            (name, preferences)
+            for name, preferences in waiting
+            if name not in assigned_names
+        ]
+        if actual_waiting:
+            for full_name, preferences in actual_waiting:
+                first_name = first_name_label(full_name, counts, seen)
+                preference_text = f' — {", ".join(preferences)}' if preferences else ''
+                write(f'{first_name}{preference_text}')
+        else:
+            write('Nobody waiting.')
+
+    write('')
     markdown('**Position totals**' if streamlit else 'Position totals:')
     for position, (minimum, maximum) in limits.items():
         total = sum(row[1] == position for row in assignments)
-        write(f'{position}: {total} (minimum {minimum}, maximum {maximum})')
+        write(f'{position}: {total} (min {minimum}, max {maximum})')
 
+    write('')
     rank_totals, rank_total = assignment_module.preference_rank_totals(assignments)
     markdown('**Preference rank totals**' if streamlit else 'Preference rank totals:')
     for rank, total in rank_totals.items():
@@ -275,9 +336,23 @@ def display_event(event, assignment_module, streamlit=None):
     if streamlit:
         streamlit.subheader(title)
         streamlit.caption(date_line)
+        visualization_key = f'list_visualization:{event.get("id", "event")}'
+        visualization = streamlit.session_state.get(
+            visualization_key,
+            'positions',
+        )
         tabs = streamlit.tabs([mode.title() for mode in ASSIGNMENT_MODES])
         for mode, tab in zip(ASSIGNMENT_MODES, tabs):
             with tab:
+                if (
+                    mode in ('flexible', 'optimized')
+                    and len(players) < MIN_PLAYERS_FOR_FLEXIBLE_ASSIGNMENT
+                ):
+                    streamlit.info(
+                        'Cannot assign Flexible/Optimized positions with less than '
+                        '12 players, use Ranked mode'
+                    )
+                    continue
                 try:
                     result, limits = calculate_assignments(
                         mode, players, assignment_module
@@ -295,7 +370,17 @@ def display_event(event, assignment_module, streamlit=None):
                     players,
                     assignment_module,
                     streamlit=streamlit,
+                    visualization=visualization,
                 )
+        streamlit.markdown('**Visualize by:**')
+        streamlit.radio(
+            'Visualize by',
+            ('positions', 'order'),
+            format_func=str.title,
+            horizontal=True,
+            label_visibility='collapsed',
+            key=visualization_key,
+        )
         return
 
     print(f'\n{title}')
@@ -319,37 +404,43 @@ def display_event(event, assignment_module, streamlit=None):
         )
 
 
-def local_main():
-    """Fetch upcoming Spond events and print every assignment mode.
+def local_main(from_json=False):
+    """Load cached or live Spond events and print every assignment mode.
 
-    Reads Spond credentials from the repository-root ``.env``, fetches events,
-    saves the event cache, and prints assignments in the terminal.
+    Reads the event cache when ``from_json`` is true. Otherwise, reads Spond
+    credentials from the repository-root ``.env``, fetches events, and saves
+    the event cache before printing assignments.
 
     Returns:
         None.
 
     Raises:
-        SystemExit: If required credentials are missing.
+        SystemExit: If required credentials are missing for a live fetch.
     """
-    from dotenv import load_dotenv
-
-    load_dotenv(Path(__file__).resolve().parents[1] / '.env')
-    username = os.environ.get('SPOND_USERNAME')
-    password = os.environ.get('SPOND_PASSWORD')
-    group_id = os.environ.get('SPOND_GROUP_ID')
-    if not username or not password or not group_id:
-        raise SystemExit(
-            'Set SPOND_USERNAME, SPOND_PASSWORD, and SPOND_GROUP_ID before running locally.'
-        )
-
     fetch_module = load_fetch_module()
-    events = asyncio.run(
-        fetch_module.fetch_upcoming_events(username, password, group_id)
-    )
-    cache_path = fetch_module.save_event_cache(events, group_id)
-    print(f'Saved live event data to {cache_path}.')
+    if from_json:
+        events = fetch_module.load_event_cache()
+        print('Loaded saved event data from upcoming_events.json.')
+    else:
+        from dotenv import load_dotenv
+
+        load_dotenv(Path(__file__).resolve().parents[1] / '.env')
+        username = os.environ.get('SPOND_USERNAME')
+        password = os.environ.get('SPOND_PASSWORD')
+        group_id = os.environ.get('SPOND_GROUP_ID')
+        if not username or not password or not group_id:
+            raise SystemExit(
+                'Set SPOND_USERNAME, SPOND_PASSWORD, and SPOND_GROUP_ID before running locally.'
+            )
+
+        events = asyncio.run(
+            fetch_module.fetch_upcoming_events(username, password, group_id)
+        )
+        cache_path = fetch_module.save_event_cache(events, group_id)
+        print(f'Saved live event data to {cache_path}.')
+
     if not events:
-        print('No upcoming events with open sign-up were found.')
+        print('No events were found in the selected source.')
         return
 
     assignment_module = load_assignment_module()
@@ -357,11 +448,12 @@ def local_main():
         display_event(event, assignment_module)
 
 
-def streamlit_main():
+def streamlit_main(from_json=False):
     """Run the password-protected Streamlit interface for Spond events.
 
-    Reads app and Spond credentials from Streamlit secrets or environment
-    variables, fetches events on request, and renders the selected event.
+    Reads cached events when ``from_json`` is true. Otherwise, reads app and
+    Spond credentials from Streamlit secrets or environment variables, fetches
+    events, saves the event cache, and renders the selected event.
 
     Returns:
         None. Writes UI content and authentication state through Streamlit.
@@ -371,7 +463,11 @@ def streamlit_main():
     fetch_module = load_fetch_module()
     st.set_page_config(page_title='VolleyApp', page_icon='🏐')
     st.title('VolleyApp 🏐')
-    st.write('Upcoming open events and position assignments from live Spond data.')
+    st.write(
+        'Event assignments from saved JSON data.'
+        if from_json
+        else 'Upcoming open events and position assignments from live Spond data.'
+    )
 
     try:
         configured = st.secrets
@@ -396,25 +492,33 @@ def streamlit_main():
             st.error('Incorrect app password.')
         return
 
-    spond_config = configured.get('spond', {})
-    username = spond_config.get('username') or os.environ.get('SPOND_USERNAME')
-    password = spond_config.get('password') or os.environ.get('SPOND_PASSWORD')
-    group_id = spond_config.get('group_id') or os.environ.get('SPOND_GROUP_ID')
-    if not username or not password or not group_id:
-        st.error('Configure Spond credentials and group ID in Streamlit secrets.')
-        return
-
     if (
         'events' not in st.session_state
         and 'events_load_error' not in st.session_state
     ):
-        try:
-            events = asyncio.run(
-                fetch_module.fetch_upcoming_events(username, password, group_id)
-            )
-        except (ImportError, OSError, ValueError, KeyError) as error:
-            st.session_state['events_load_error'] = str(error)
+        if from_json:
+            try:
+                events = fetch_module.load_event_cache()
+            except (OSError, ValueError) as error:
+                st.session_state['events_load_error'] = str(error)
         else:
+            spond_config = configured.get('spond', {})
+            username = spond_config.get('username') or os.environ.get('SPOND_USERNAME')
+            password = spond_config.get('password') or os.environ.get('SPOND_PASSWORD')
+            group_id = spond_config.get('group_id') or os.environ.get('SPOND_GROUP_ID')
+            if not username or not password or not group_id:
+                st.error('Configure Spond credentials and group ID in Streamlit secrets.')
+                return
+
+            try:
+                events = asyncio.run(
+                    fetch_module.fetch_upcoming_events(username, password, group_id)
+                )
+                fetch_module.save_event_cache(events, group_id)
+            except (ImportError, OSError, ValueError, KeyError) as error:
+                st.session_state['events_load_error'] = str(error)
+
+        if 'events_load_error' not in st.session_state:
             st.session_state['events'] = [
                 {
                     'id': event['id'],
@@ -460,12 +564,20 @@ def streamlit_main():
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--from-json',
+        action='store_true',
+        help='Load saved events from check_spond/upcoming_events.json without accessing Spond.',
+    )
+    args, _ = parser.parse_known_args()
+
     try:
         from streamlit.runtime.scriptrunner import get_script_run_ctx
     except ImportError:
         get_script_run_ctx = None
 
     if get_script_run_ctx is not None and get_script_run_ctx() is not None:
-        streamlit_main()
+        streamlit_main(from_json=args.from_json)
     else:
-        local_main()
+        local_main(from_json=args.from_json)
