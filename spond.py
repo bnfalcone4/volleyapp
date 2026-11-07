@@ -1,6 +1,7 @@
 """Assign Spond sign-ups to volleyball positions.
 
-The module supports ranked, signup-order flexible, and optimized assignments.
+The module supports ranked, strict, signup-order flexible, and optimized
+assignments.
 Its command-line interface accepts either a Spond CSV export or cached event
 preferences; assignment helpers return player assignments and waiting lists,
 while the ``run_*`` helpers and CLI print results. Submitted preference scores
@@ -226,6 +227,88 @@ def ranked_assignments(players, event_capacity=EVENT_CAPACITY):
             event_capacity,
         )
     return assignment, waiting
+
+
+def assign_strict(players, event_capacity=EVENT_CAPACITY):
+    """Assign each player to an available rank-1 position in signup order.
+
+    When a player's first-choice position is unavailable, the player is
+    waitlisted and one remaining slot is reserved in every other position.
+
+    Args:
+        players: Ordered sequence of ``(name, preferences)`` pairs.
+        event_capacity: Maximum number of players assigned to the event.
+
+    Returns:
+        A pair of assignment rows ``(name, position, rank)`` and waitlisted
+        players as ``(name, preferences)`` pairs, both in signup order.
+    """
+    players = [
+        (name, normalize_preference_ranks(preferences))
+        for name, preferences in players
+    ]
+    capacities = {
+        position: capacity
+        for position, capacity in EVENT_POSITIONS.items()
+        if position != 'unknown'
+    }
+    assigned_counts = dict.fromkeys(capacities, 0)
+    reserved_counts = dict.fromkeys(capacities, 0)
+    assignments = []
+    waiting = []
+
+    for name, preferences in players:
+        top_position = next(
+            (position for position, rank in preferences.items() if rank == 1),
+            None,
+        )
+        can_assign = (
+            len(assignments) < event_capacity
+            and top_position in capacities
+            and assigned_counts[top_position] + reserved_counts[top_position]
+            < capacities[top_position]
+        )
+        if can_assign:
+            assigned_counts[top_position] += 1
+            assignments.append((name, top_position, preferences[top_position]))
+            continue
+
+        waiting.append((name, preferences))
+        if len(assignments) >= event_capacity:
+            continue
+        for position, capacity in capacities.items():
+            if position == top_position:
+                continue
+            if assigned_counts[position] + reserved_counts[position] < capacity:
+                reserved_counts[position] += 1
+
+    return assignments, waiting
+
+
+def print_strict_assignments(players):
+    """Run strict assignment and print assignments and waitlisted sign-ups."""
+    assignments, waiting = assign_strict(players)
+    print('Strict assignments (signup order):')
+    for number, (name, position, rank) in enumerate(assignments, start=1):
+        print(f'{number}. {name} - {position} - {rank}')
+
+    counts = {
+        position: 0
+        for position in EVENT_POSITIONS
+        if position != 'unknown'
+    }
+    for _, position, _ in assignments:
+        counts[position] += 1
+    print('\nPosition totals:')
+    for position, capacity in EVENT_POSITIONS.items():
+        if position != 'unknown':
+            print(f'{position}: {counts[position]} (min 0, max {capacity})')
+
+    if waiting:
+        print('\nWaiting list:')
+        for name, _ in waiting:
+            print(name)
+    print_preference_rank_totals(assignments)
 
 
 def assign_ranked_players(players):
@@ -533,6 +616,20 @@ def run_flexible(df, minimums):
     print_preference_rank_totals(assignments)
 
 
+def run_strict(df):
+    """Assign rank-1 preferences in CSV signup order and print the results."""
+    players = []
+    for _, row in df.iterrows():
+        preferences = {
+            position: row[column]
+            for position, column in PREFERENCE_COLUMNS.items()
+            if pd.notna(row[column])
+        }
+        players.append((row['Name'], preferences))
+
+    print_strict_assignments(players)
+
+
 def run_optimized(df, minimums):
     """Assign a Spond DataFrame with preference optimization and print results.
 
@@ -629,9 +726,9 @@ def main():
     )
     parser.add_argument(
         '--mode',
-        choices=('ranked', 'flexible', 'optimized'),
+        choices=('ranked', 'strict', 'flexible', 'optimized'),
         default='ranked',
-        help='Use ranked, signup-order flexible, or optimized assignment',
+        help='Use ranked, strict, signup-order flexible, or optimized assignment',
     )
     parser.add_argument(
         '--minimums-csv',
@@ -643,19 +740,28 @@ def main():
     if args.preferences_json:
         if args.csv_file:
             parser.error('Do not provide csv_file together with --preferences-json.')
-        if args.mode != 'ranked':
-            parser.error('--preferences-json currently supports ranked mode only.')
+        if args.mode not in ('ranked', 'strict'):
+            parser.error(
+                '--preferences-json currently supports ranked and strict modes only.'
+            )
         from check_spond.check_spond import load_players_from_json
 
         players = normalize_player_preferences(
             load_players_from_json(args.preferences_json, args.event_index)
         )
-        assign_ranked_players(players)
+        if args.mode == 'strict':
+            print_strict_assignments(list(players.items()))
+        else:
+            assign_ranked_players(players)
         return
 
     if not args.csv_file:
         parser.error('csv_file is required unless --preferences-json is provided.')
     df = normalize_preference_columns(pd.read_csv(args.csv_file))
+
+    if args.mode == 'strict':
+        run_strict(df)
+        return
 
     if args.mode in ('flexible', 'optimized'):
         total = min(len(df), EVENT_CAPACITY)

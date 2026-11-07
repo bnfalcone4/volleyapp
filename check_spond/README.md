@@ -42,10 +42,12 @@ The app requires the app password to view data. In live mode, it fetches events
 after login, saves the full event data to `upcoming_events.json`, and keeps
 event details and preference dictionaries in the app session so reruns do not
 fetch them again. If loading fails, reload the app to retry. Each event displays
-separate Ranked, Flexible, and Optimized assignment results. Flexible and
-Optimized use the `min_positions.csv` row for the number of checked players up
-to the selected Player cap. The local terminal mode prints all three results.
-For each player,
+separate Ranked, Strict, Flexible, and Optimized assignment results. Strict
+assigns players in signup order only to their rank-1 position. If that position
+is full or reserved, the player is waitlisted and a remaining slot in each
+other position is reserved for them. Flexible and Optimized use the
+`min_positions.csv` row for the number of checked players up to the selected
+Player cap. The local terminal mode prints all four results. For each player,
 submitted preference scores are sorted and renumbered consecutively from 1;
 positions without a score remain blank.
 Use **Edit attendance** to check or uncheck players; the first 21 players start
@@ -55,8 +57,8 @@ list counts; when players are unchecked, **Absent** shows their count. It also
 recalculates all assignment lists.
 In the Streamlit app, **List visualization** defaults to **Positions** and can
 be switched to **Order** to show assignments in signup order. The **Show
-cascade** option displays Ranked-mode players' blocked preferences when those
-positions have a better rank than their assigned position. **Player cap**
+cascade** option displays players' blocked preferences when those positions
+have a better rank than their assigned position. **Player cap**
 defaults to Spond's maximum number of participants (`maxAccepted`), saved with
 each event in `upcoming_events.json`; older cache entries without this field
 default to 21. The cap has no signup-count maximum and can be increased as

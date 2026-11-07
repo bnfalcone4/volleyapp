@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-ASSIGNMENT_MODES = ('ranked', 'flexible', 'optimized')
+ASSIGNMENT_MODES = ('ranked', 'strict', 'flexible', 'optimized')
 MIN_PLAYERS_FOR_FLEXIBLE_ASSIGNMENT = 12
 
 
@@ -87,8 +87,8 @@ def calculate_assignments(
     """Run one assignment mode and return its results and position limits.
 
     Args:
-        mode: Assignment algorithm name: ``ranked``, ``flexible``, or
-            ``optimized``.
+        mode: Assignment algorithm name: ``ranked``, ``strict``, ``flexible``,
+            or ``optimized``.
         players: Mapping of full player names to position preference ranks.
         assignment_module: Loaded module providing assignment algorithms and
             position-limit configuration.
@@ -114,6 +114,17 @@ def calculate_assignments(
         }
         return assignment_module.ranked_assignments(
             players,
+            event_capacity=event_capacity,
+        ), limits
+
+    if mode == 'strict':
+        limits = {
+            position: (0, capacity)
+            for position, capacity in assignment_module.EVENT_POSITIONS.items()
+            if position != 'unknown'
+        }
+        return assignment_module.assign_strict(
+            list(players.items()),
             event_capacity=event_capacity,
         ), limits
 
@@ -217,7 +228,6 @@ def display_assignments(
     streamlit=None,
     visualization='positions',
     cascade=(),
-    event_capacity=None,
 ):
     """Render assignments in position or signup order, plus assignment totals.
 
@@ -233,7 +243,6 @@ def display_assignments(
         visualization: ``positions`` to group by position or ``order`` to list
             assignments in signup order.
         cascade: Assigned players and their blocked, better-ranked positions.
-        event_capacity: Maximum number of players assigned to the event.
 
     Returns:
         None. Writes the result to Streamlit or standard output.
@@ -283,15 +292,10 @@ def display_assignments(
                 write(f'{index}. {name} {rank_text}')
 
         assigned_names = {name for name, _, _ in assignments}
-        capacity = (
-            event_capacity
-            if event_capacity is not None
-            else assignment_module.EVENT_CAPACITY
-        )
         unassigned_waiting = [
             (name, preferences)
             for name, preferences in waiting
-            if len(players) > capacity and name not in assigned_names
+            if name not in assigned_names
         ]
         if unassigned_waiting:
             markdown('**📝 Waitlist:**' if streamlit else '📝 Waitlist:')
@@ -503,7 +507,6 @@ def display_event(event, assignment_module, streamlit=None):
                         if show_cascade
                         else ()
                     ),
-                    event_capacity=event_capacity,
                 )
         streamlit.markdown('**Visualize by:**')
         streamlit.radio(
