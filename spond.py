@@ -37,7 +37,14 @@ PREFERENCE_COLUMNS = {
     'libero': 'Libero rank from 1 to 5',
 }
 
-def assign_position(player, preferences, positions, assignment, waiting):
+def assign_position(
+    player,
+    preferences,
+    positions,
+    assignment,
+    waiting,
+    event_capacity=EVENT_CAPACITY,
+):
     """Assign one player using ranked preferences and update assignment state.
 
     Args:
@@ -46,12 +53,13 @@ def assign_position(player, preferences, positions, assignment, waiting):
         positions: Mutable mapping of positions to remaining capacities.
         assignment: Mutable mapping of already-assigned players to positions.
         waiting: Mutable mapping of players to positions that were full.
+        event_capacity: Maximum number of players assigned to the event.
 
     Returns:
         The updated ``(assignment, positions, waiting)`` mappings.
     """
 
-    if len(assignment) >= EVENT_CAPACITY:
+    if len(assignment) >= event_capacity:
         waiting[player] = [pos for pos, val in preferences.items() if val <= 5]
         return assignment, positions, waiting
 
@@ -192,11 +200,12 @@ def print_preference_rank_totals(assignments):
     print(f'Average: {average:.2f}')
 
 
-def ranked_assignments(players):
+def ranked_assignments(players, event_capacity=EVENT_CAPACITY):
     """Assign players to fixed-capacity positions in input order.
 
     Args:
         players: Mapping of player names to ordered position preference ranks.
+        event_capacity: Maximum number of players assigned to the event.
 
     Returns:
         A pair of the player-to-position assignment mapping and a waiting-list
@@ -204,11 +213,17 @@ def ranked_assignments(players):
     """
     players = normalize_player_preferences(players)
     positions = EVENT_POSITIONS.copy()
+    positions['unknown'] = event_capacity
     assignment = {}
     waiting = {}
     for player, preferences in players.items():
         assignment, positions, waiting = assign_position(
-            player, preferences, positions, assignment, waiting
+            player,
+            preferences,
+            positions,
+            assignment,
+            waiting,
+            event_capacity,
         )
     return assignment, waiting
 
@@ -257,7 +272,7 @@ def is_woman(name):
     return 0
 
 
-def assign_flexible(players, minimums):
+def assign_flexible(players, minimums, event_capacity=EVENT_CAPACITY):
     """Assign the first event-capacity players in signup order.
 
     Preference ranks are considered while respecting configured minimums and
@@ -266,6 +281,7 @@ def assign_flexible(players, minimums):
     Args:
         players: Ordered sequence of ``(name, preferences)`` pairs.
         minimums: Mapping of position names to required minimum counts.
+        event_capacity: Maximum number of players assigned to the event.
 
     Returns:
         A pair of assignment rows ``(name, position, rank)`` and the players
@@ -278,7 +294,7 @@ def assign_flexible(players, minimums):
         (name, normalize_preference_ranks(preferences))
         for name, preferences in players
     ]
-    assigned_players = players[:EVENT_CAPACITY]
+    assigned_players = players[:event_capacity]
     minimum_total = sum(minimums.values())
     if len(assigned_players) < minimum_total:
         raise ValueError(
@@ -323,15 +339,19 @@ def assign_flexible(players, minimums):
                 f'Could not assign {name} while meeting the flexible position minimums.'
             )
 
-    return assignments, players[EVENT_CAPACITY:]
+    return assignments, players[event_capacity:]
 
 
-def assign_hungarian(players, minimums):
+def assign_hungarian(players, minimums, event_capacity=EVENT_CAPACITY):
     """Find a preference-optimized assignment within position limits.
+
+    Unscored positions receive the next rank after each player's submitted
+    preferences.
 
     Args:
         players: Ordered sequence of ``(name, preferences)`` pairs.
         minimums: Mapping of position names to required minimum counts.
+        event_capacity: Maximum number of players assigned to the event.
 
     Returns:
         A pair of assignment rows ``(name, position, rank)`` and the players
@@ -353,7 +373,7 @@ def assign_hungarian(players, minimums):
         (name, normalize_preference_ranks(preferences))
         for name, preferences in players
     ]
-    assigned_players = players[:EVENT_CAPACITY]
+    assigned_players = players[:event_capacity]
     player_count = len(assigned_players)
     minimum_total = sum(minimums.values())
     maximum_total = sum(maximum for _, maximum in FLEXIBLE_LIMITS.values())
@@ -368,17 +388,27 @@ def assign_hungarian(players, minimums):
         slots.extend((position, True) for _ in range(minimums[position]))
         slots.extend((position, False) for _ in range(maximum - minimums[position]))
 
-    tie_break_max = 6 * sum(range(1, player_count + 1))
+    missing_ranks = [
+        len(preferences) + 1 for _, preferences in assigned_players
+    ]
+    worst_preference_rank = max(missing_ranks, default=1)
+    tie_break_max = worst_preference_rank * sum(
+        range(1, player_count + 1)
+    )
     preference_scale = tie_break_max + 1
-    largest_player_cost = 6 * preference_scale + 6 * player_count
+    largest_player_cost = (
+        worst_preference_rank * preference_scale
+        + worst_preference_rank * player_count
+    )
     mandatory_slot_penalty = largest_player_cost * (len(slots) + 1)
 
     costs = []
     for index, (_, preferences) in enumerate(assigned_players):
         order_weight = player_count - index
+        missing_rank = len(preferences) + 1
         costs.append([
-            (preferences.get(position, 6) * preference_scale)
-            + (preferences.get(position, 6) * order_weight)
+            (preferences.get(position, missing_rank) * preference_scale)
+            + (preferences.get(position, missing_rank) * order_weight)
             for position, _ in slots
         ])
 
@@ -401,7 +431,7 @@ def assign_hungarian(players, minimums):
         position = slots[slot_index][0]
         assignments.append((name, position, preferences.get(position)))
 
-    return assignments, players[EVENT_CAPACITY:]
+    return assignments, players[event_capacity:]
 
 
 def load_minimums(csv_path, total):

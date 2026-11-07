@@ -43,14 +43,22 @@ after login, saves the full event data to `upcoming_events.json`, and keeps
 event details and preference dictionaries in the app session so reruns do not
 fetch them again. If loading fails, reload the app to retry. Each event displays
 separate Ranked, Flexible, and Optimized assignment results. Flexible and
-Optimized use the matching player-count row in the repository-root
-`min_positions.csv`; the local terminal mode prints all three results. For each
-player, submitted preference scores are sorted and renumbered consecutively
-from 1; positions without a score remain blank.
+Optimized use the `min_positions.csv` row for the number of checked players up
+to the selected Player cap. The local terminal mode prints all three results.
+For each player,
+submitted preference scores are sorted and renumbered consecutively from 1;
+positions without a score remain blank.
 Use **Edit attendance** to check or uncheck players; the first 21 players start
 checked and players beyond the event capacity (initially waiting) start
-unchecked. Each checkbox change immediately recalculates all assignment lists.
+unchecked. Each checkbox change immediately updates the attending and waiting
+list counts; when players are unchecked, **Absent** shows their count. It also
+recalculates all assignment lists.
 In the Streamlit app, **List visualization** defaults to **Positions** and can
 be switched to **Order** to show assignments in signup order. The **Show
 cascade** option displays Ranked-mode players' blocked preferences when those
-positions have a better rank than their assigned position.
+positions have a better rank than their assigned position. **Player cap**
+defaults to Spond's maximum number of participants (`maxAccepted`), saved with
+each event in `upcoming_events.json`; older cache entries without this field
+default to 21. The cap has no signup-count maximum and can be increased as
+needed; assignments recalculate with players beyond the cap moved to the
+waitlist.

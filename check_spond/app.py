@@ -77,7 +77,13 @@ def first_name_label(full_name, counts, seen):
     return first_name
 
 
-def calculate_assignments(mode, players, assignment_module):
+def calculate_assignments(
+    mode,
+    players,
+    assignment_module,
+    event_capacity=None,
+    signup_count=None,
+):
     """Run one assignment mode and return its results and position limits.
 
     Args:
@@ -86,6 +92,8 @@ def calculate_assignments(mode, players, assignment_module):
         players: Mapping of full player names to position preference ranks.
         assignment_module: Loaded module providing assignment algorithms and
             position-limit configuration.
+        event_capacity: Maximum number of players assigned to the event.
+        signup_count: Number of selected players to use for minimum lookup.
 
     Returns:
         A pair of the algorithm's (assignments, waiting list) result and a
@@ -95,15 +103,23 @@ def calculate_assignments(mode, players, assignment_module):
         OSError, RuntimeError, ValueError: If limits cannot be loaded, the
             selected algorithm cannot run, or ``mode`` is unsupported.
     """
+    if event_capacity is None:
+        event_capacity = assignment_module.EVENT_CAPACITY
+
     if mode == 'ranked':
         limits = {
             position: (capacity, capacity)
             for position, capacity in assignment_module.EVENT_POSITIONS.items()
             if position != 'unknown'
         }
-        return assignment_module.ranked_assignments(players), limits
+        return assignment_module.ranked_assignments(
+            players,
+            event_capacity=event_capacity,
+        ), limits
 
-    total = min(len(players), assignment_module.EVENT_CAPACITY)
+    if signup_count is None:
+        signup_count = len(players)
+    total = min(signup_count, event_capacity)
     minimums_path = Path(__file__).resolve().parents[1] / 'min_positions.csv'
     minimums = assignment_module.load_minimums(minimums_path, total)
     signup_order = list(players.items())
@@ -112,9 +128,17 @@ def calculate_assignments(mode, players, assignment_module):
         for position, (_, maximum) in assignment_module.FLEXIBLE_LIMITS.items()
     }
     if mode == 'flexible':
-        return assignment_module.assign_flexible(signup_order, minimums), limits
+        return assignment_module.assign_flexible(
+            signup_order,
+            minimums,
+            event_capacity=event_capacity,
+        ), limits
     if mode == 'optimized':
-        return assignment_module.assign_hungarian(signup_order, minimums), limits
+        return assignment_module.assign_hungarian(
+            signup_order,
+            minimums,
+            event_capacity=event_capacity,
+        ), limits
     raise ValueError(f'Unsupported assignment mode: {mode}.')
 
 
@@ -143,7 +167,7 @@ def assignment_rows(mode, result, players):
     return rows, waiting_rows
 
 
-def cascade_rows(assignments, waiting, players):
+def cascade_rows(assignments, limits, players):
     """Return assigned players waiting for a better-ranked position.
 
     Players are returned in signup order, and only blocked preferences ranked
@@ -152,7 +176,18 @@ def cascade_rows(assignments, waiting, players):
     assigned_positions = {
         name: position for name, position, _ in assignments
     }
-    waiting_positions = dict(waiting)
+    position_counts = {
+        position: sum(
+            assigned_position == position
+            for assigned_position in assigned_positions.values()
+        )
+        for position in limits
+    }
+    full_positions = {
+        position
+        for position, (_, maximum) in limits.items()
+        if position_counts[position] >= maximum
+    }
     cascade = []
     for name, preferences in players.items():
         if name not in assigned_positions:
@@ -161,8 +196,8 @@ def cascade_rows(assignments, waiting, players):
         current_rank = preferences.get(current_position)
         improvements = [
             (position, preferences[position])
-            for position in waiting_positions.get(name, [])
-            if position in preferences
+            for position in preferences
+            if position in full_positions
             and (
                 current_rank is None
                 or preferences[position] < current_rank
@@ -182,6 +217,7 @@ def display_assignments(
     streamlit=None,
     visualization='positions',
     cascade=(),
+    event_capacity=None,
 ):
     """Render assignments in position or signup order, plus assignment totals.
 
@@ -197,6 +233,7 @@ def display_assignments(
         visualization: ``positions`` to group by position or ``order`` to list
             assignments in signup order.
         cascade: Assigned players and their blocked, better-ranked positions.
+        event_capacity: Maximum number of players assigned to the event.
 
     Returns:
         None. Writes the result to Streamlit or standard output.
@@ -246,7 +283,11 @@ def display_assignments(
                 write(f'{index}. {name} {rank_text}')
 
         assigned_names = {name for name, _, _ in assignments}
-        capacity = assignment_module.EVENT_CAPACITY
+        capacity = (
+            event_capacity
+            if event_capacity is not None
+            else assignment_module.EVENT_CAPACITY
+        )
         unassigned_waiting = [
             (name, preferences)
             for name, preferences in waiting
@@ -306,7 +347,13 @@ def display_assignments(
     write(f'Average: {average_rank:.2f}')
 
 
-def edit_event_attendance(event, players, assignment_module, streamlit):
+def edit_event_attendance(
+    event,
+    players,
+    assignment_module,
+    streamlit,
+    event_capacity=None,
+):
     """Render attendance checkboxes and return only selected players.
 
     The first event-capacity players default to attending; later players
@@ -325,6 +372,8 @@ def edit_event_attendance(event, players, assignment_module, streamlit):
         their original signup order.
     """
     selected_players = {}
+    if event_capacity is None:
+        event_capacity = assignment_module.EVENT_CAPACITY
     with streamlit.expander('Edit attendance'):
         streamlit.caption(
             'Checked players are attending. Players beyond event capacity '
@@ -334,7 +383,7 @@ def edit_event_attendance(event, players, assignment_module, streamlit):
             key = f'attendance:{event.get("id", "event")}:{name}'
             if key not in streamlit.session_state:
                 streamlit.session_state[key] = (
-                    index < assignment_module.EVENT_CAPACITY
+                    index < event_capacity
                 )
             if streamlit.checkbox(name, key=key):
                 selected_players[name] = preferences
@@ -359,13 +408,34 @@ def display_event(event, assignment_module, streamlit=None):
         errors through the selected output interface.
     """
     players = assignment_module.normalize_player_preferences(event['players'])
+    signup_players = players
     if streamlit:
+        capacity_key = f'player_cap:{event.get("id", "event")}'
+        spond_capacity = event.get('maxAccepted')
+        if spond_capacity is None:
+            spond_capacity = assignment_module.EVENT_CAPACITY
+        if (
+            isinstance(spond_capacity, bool)
+            or not isinstance(spond_capacity, int)
+            or spond_capacity < 1
+        ):
+            raise ValueError(
+                f'Invalid maximum number of participants for event '
+                f'{event.get("id", "event")}: {spond_capacity!r}.'
+            )
+        if capacity_key not in streamlit.session_state:
+            streamlit.session_state[capacity_key] = spond_capacity
+        event_capacity = streamlit.session_state[capacity_key]
         players = edit_event_attendance(
             event,
             players,
             assignment_module,
             streamlit,
+            event_capacity,
         )
+    else:
+        event_capacity = assignment_module.EVENT_CAPACITY
+    signup_count = len(players)
     start = datetime.fromisoformat(event['startTimestamp'].replace('Z', '+00:00'))
     end = datetime.fromisoformat(event['endTimestamp'].replace('Z', '+00:00'))
     start = start.astimezone(timezone.utc)
@@ -376,6 +446,16 @@ def display_event(event, assignment_module, streamlit=None):
     if streamlit:
         streamlit.subheader(title)
         streamlit.caption(date_line)
+        attending_count = min(len(players), event_capacity)
+        waiting_count = max(0, len(players) - event_capacity)
+        absent_count = len(signup_players) - len(players)
+        summary = (
+            f'Attending: {attending_count} ({event_capacity} cap)  \n'
+            f'Waiting list: {waiting_count}'
+        )
+        if absent_count:
+            summary += f'  \nAbsent: {absent_count}'
+        streamlit.markdown(summary)
         visualization_key = f'list_visualization:{event.get("id", "event")}'
         visualization = streamlit.session_state.get(
             visualization_key,
@@ -388,7 +468,8 @@ def display_event(event, assignment_module, streamlit=None):
             with tab:
                 if (
                     mode in ('flexible', 'optimized')
-                    and len(players) < MIN_PLAYERS_FOR_FLEXIBLE_ASSIGNMENT
+                    and min(len(players), event_capacity)
+                    < MIN_PLAYERS_FOR_FLEXIBLE_ASSIGNMENT
                 ):
                     streamlit.info(
                         'Cannot assign Flexible/Optimized positions with less than '
@@ -397,7 +478,11 @@ def display_event(event, assignment_module, streamlit=None):
                     continue
                 try:
                     result, limits = calculate_assignments(
-                        mode, players, assignment_module
+                        mode,
+                        players,
+                        assignment_module,
+                        event_capacity=event_capacity,
+                        signup_count=signup_count,
                     )
                 except (OSError, RuntimeError, ValueError) as error:
                     streamlit.error(f'Could not calculate {mode} assignments: {error}')
@@ -414,10 +499,11 @@ def display_event(event, assignment_module, streamlit=None):
                     streamlit=streamlit,
                     visualization=visualization,
                     cascade=(
-                        cascade_rows(assignments, waiting, players)
-                        if show_cascade and mode == 'ranked'
+                        cascade_rows(assignments, limits, players)
+                        if show_cascade
                         else ()
                     ),
+                    event_capacity=event_capacity,
                 )
         streamlit.markdown('**Visualize by:**')
         streamlit.radio(
@@ -437,6 +523,14 @@ def display_event(event, assignment_module, streamlit=None):
             label_visibility='collapsed',
             key=cascade_key,
         )
+        streamlit.markdown('**Player cap:**')
+        streamlit.number_input(
+            'Player cap',
+            min_value=1,
+            step=1,
+            label_visibility='collapsed',
+            key=capacity_key,
+        )
         return
 
     print(f'\n{title}')
@@ -445,7 +539,11 @@ def display_event(event, assignment_module, streamlit=None):
         print(f'\n{mode.title()}')
         try:
             result, limits = calculate_assignments(
-                mode, players, assignment_module
+                mode,
+                players,
+                assignment_module,
+                event_capacity=event_capacity,
+                signup_count=signup_count,
             )
         except (OSError, RuntimeError, ValueError) as error:
             print(f'Could not calculate {mode} assignments: {error}')
@@ -581,6 +679,7 @@ def streamlit_main(from_json=False):
                     'heading': event['heading'],
                     'startTimestamp': event['startTimestamp'],
                     'endTimestamp': event['endTimestamp'],
+                    'maxAccepted': event.get('maxAccepted'),
                     'players': event['players'],
                 }
                 for event in events

@@ -210,6 +210,7 @@ async def fetch_upcoming_events(username, password, group_id):
                 'heading': event.get('heading'),
                 'startTimestamp': event['startTimestamp'],
                 'endTimestamp': event['endTimestamp'],
+                'maxAccepted': event.get('maxAccepted'),
                 'people': people,
                 'players': player_preferences(people),
             })
