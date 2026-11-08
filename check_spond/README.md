@@ -14,9 +14,10 @@ python check_spond/app.py
 ```
 
 This fetches event and attendee data from Spond and saves it to
-`check_spond/upcoming_events.json`. The Streamlit app also saves fetched data
-to that file. To run either local mode using the saved data without accessing
-Spond, pass `--from-json`:
+`check_spond/upcoming_events.json`. The cache retains attendee surnames but
+omits phone numbers, email addresses, dates of birth, and image URLs. The
+Streamlit app also saves fetched data to that file. To run either local mode
+using the saved data without accessing Spond, pass `--from-json`:
 
 ```bash
 python check_spond/app.py --from-json

@@ -92,6 +92,41 @@ def print_event_details(event, people):
         print(f"{index}. {person.get('firstName') or 'Unknown'}")
 
 
+def sanitize_cached_data(value):
+    """Remove private contact, birth-date, and image fields from cached data."""
+    if isinstance(value, dict):
+        sanitized = {}
+        for key, item in value.items():
+            normalized_key = ''.join(
+                character for character in key.casefold() if character.isalnum()
+            )
+            if (
+                normalized_key in {
+                    'email',
+                    'emailaddress',
+                    'emails',
+                    'phone',
+                    'phonenumber',
+                    'phonenumbers',
+                    'mobile',
+                    'mobilenumber',
+                    'mobilephone',
+                    'telephone',
+                    'dateofbirth',
+                    'birthdate',
+                    'birthday',
+                    'dob',
+                    'imageurl',
+                }
+            ):
+                continue
+            sanitized[key] = sanitize_cached_data(item)
+        return sanitized
+    if isinstance(value, list):
+        return [sanitize_cached_data(item) for item in value]
+    return value
+
+
 def save_event_cache(events, group_id):
     """Write fetched events and schema metadata to the local JSON cache.
 
@@ -111,7 +146,7 @@ def save_event_cache(events, group_id):
         'groupId': group_id,
         'identifierMeanings': IDENTIFIER_MEANINGS,
         'positionFieldIds': POSITION_FIELD_IDS,
-        'events': events,
+        'events': sanitize_cached_data(list(events)),
     }
     cache_path.write_text(
         json.dumps(cache, ensure_ascii=False, indent=2) + '\n',

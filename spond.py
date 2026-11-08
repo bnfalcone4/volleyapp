@@ -352,7 +352,7 @@ def is_woman(name):
         ``1`` if the name is in the configured list; otherwise ``0``.
     """
 
-    if name in ['Eloise Vint', 'abigail Osoba', 'Rama Alrawi']:
+    if name in []:
         return 1
 
     return 0
