@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-ASSIGNMENT_MODES = ('ranked', 'strict', 'flexible', 'optimized')
+ASSIGNMENT_MODES = ('ranked', 'flexible', 'optimized', 'strict')
 MIN_PLAYERS_FOR_FLEXIBLE_ASSIGNMENT = 12
 
 
@@ -173,6 +173,16 @@ def calculate_assignments(
     raise ValueError(f'Unsupported assignment mode: {mode}.')
 
 
+def adjust_position_limit(key, delta, minimum, maximum):
+    """Increment or decrement one position limit within its feasible range."""
+    import streamlit as st
+
+    st.session_state[key] = min(
+        maximum,
+        max(minimum, st.session_state[key] + delta),
+    )
+
+
 def edit_position_limits(mode, event, defaults, player_count, streamlit):
     """Render feasible position limits for one assignment mode."""
     limits = {}
@@ -223,9 +233,7 @@ def edit_position_limits(mode, event, defaults, player_count, streamlit):
                 f'{mode}:{position}:min'
             )
             maximum_key = minimum_key[:-3] + 'max'
-            columns = streamlit.columns((1.2, 1, 1))
-            with columns[0]:
-                streamlit.markdown(f'**{position.title()}**')
+            state[minimum_key], state[maximum_key] = values
             other_minimums = sum(
                 limits[other][0] for other in limits if other != position
             )
@@ -233,17 +241,7 @@ def edit_position_limits(mode, event, defaults, player_count, streamlit):
                 state[maximum_key],
                 player_count - other_minimums,
             )
-            with columns[1]:
-                minimum = streamlit.number_input(
-                    'Min',
-                    min_value=0,
-                    max_value=minimum_maximum,
-                    step=1,
-                    label_visibility='collapsed',
-                    key=minimum_key,
-                )
-            limits[position][0] = minimum
-
+            minimum = state[minimum_key]
             other_maximums = sum(
                 limits[other][1] for other in limits if other != position
             )
@@ -251,21 +249,91 @@ def edit_position_limits(mode, event, defaults, player_count, streamlit):
                 minimum,
                 player_count - other_maximums,
             )
-            with columns[2]:
-                maximum = streamlit.number_input(
-                    'Max',
-                    min_value=maximum_minimum,
-                    max_value=player_count,
-                    step=1,
-                    label_visibility='collapsed',
-                    key=maximum_key,
+            maximum = state[maximum_key]
+            with streamlit.container(
+                horizontal=True,
+                wrap=False,
+                vertical_alignment='center',
+                gap='small',
+            ):
+                streamlit.text(position.title(), width='content')
+                streamlit.text('Min', width='content')
+                streamlit.button(
+                    '-',
+                    key=f'{minimum_key}:decrement',
+                    help=f'Decrease {position} minimum',
+                    width='content',
+                    on_click=adjust_position_limit,
+                    args=(minimum_key, -1, 0, minimum_maximum),
                 )
+                streamlit.text(str(minimum), width='content')
+                streamlit.button(
+                    '+',
+                    key=f'{minimum_key}:increment',
+                    help=f'Increase {position} minimum',
+                    width='content',
+                    on_click=adjust_position_limit,
+                    args=(minimum_key, 1, 0, minimum_maximum),
+                )
+                streamlit.text('Max', width='content')
+                streamlit.button(
+                    '-',
+                    key=f'{maximum_key}:decrement',
+                    help=f'Decrease {position} maximum',
+                    width='content',
+                    on_click=adjust_position_limit,
+                    args=(
+                        maximum_key,
+                        -1,
+                        maximum_minimum,
+                        player_count,
+                    ),
+                )
+                streamlit.text(str(maximum), width='content')
+                streamlit.button(
+                    '+',
+                    key=f'{maximum_key}:increment',
+                    help=f'Increase {position} maximum',
+                    width='content',
+                    on_click=adjust_position_limit,
+                    args=(
+                        maximum_key,
+                        1,
+                        maximum_minimum,
+                        player_count,
+                    ),
+                )
+
+            limits[position][0] = minimum
             limits[position][1] = maximum
 
     return {
         position: (minimum, maximum)
         for position, (minimum, maximum) in limits.items()
     }
+
+
+def order_events_from_today(events, today=None):
+    """Order upcoming events chronologically, then past events newest first."""
+    if today is None:
+        today = datetime.now(timezone.utc).date()
+
+    def sort_key(indexed_event):
+        index, event = indexed_event
+        start = datetime.fromisoformat(
+            event['startTimestamp'].replace('Z', '+00:00')
+        )
+        if start.tzinfo is None:
+            start = start.replace(tzinfo=timezone.utc)
+        start = start.astimezone(timezone.utc)
+        if start.date() >= today:
+            return (0, start.timestamp(), index)
+        return (1, -start.timestamp(), index)
+
+    return [
+        event
+        for _, event in sorted(enumerate(events), key=sort_key)
+    ]
 
 
 def assignment_rows(mode, result, players):
@@ -586,7 +654,7 @@ def display_event(event, assignment_module, streamlit=None):
         mode_descriptions = {
             'ranked': 'First come first based',
             'strict': (
-                'Assign top preference in sign up order and stop when not possible'
+                'Assigns top preference in sign up order and stops when not possible'
             ),
             'flexible': 'First come first based with flexible position limits',
             'optimized': "Optimized to maximize players' preferences",
@@ -837,7 +905,7 @@ def streamlit_main(from_json=False):
         )
         return
 
-    events = st.session_state.get('events', [])
+    events = order_events_from_today(st.session_state.get('events', []))
     if not events:
         st.info('No upcoming events with open sign-up were found.')
         return

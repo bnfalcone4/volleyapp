@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-08T00:19:47.120449+00:00",
+  "generatedAt": "2026-11-08T11:12:04.605011+00:00",
   "groupId": "9DCF85B7A9B94C5D8D90B9754341E660",
   "identifierMeanings": {
     "groupId": "Opaque Spond identifier for the group queried by this script.",
@@ -960,6 +960,152 @@
         "Michal Horanský": {},
         "Kodi Chapman-Bright": {
           "middle": 1
+        }
+      }
+    },
+    {
+      "id": "EE9A7EE711804DA6A89851DDE88813E6",
+      "heading": "Unranked",
+      "startTimestamp": "2026-11-10T10:00:00Z",
+      "endTimestamp": "2026-11-10T12:00:00Z",
+      "maxAccepted": 21,
+      "people": [
+        {
+          "id": "799DB2D1EFD14FA7A4767A3B599740AE",
+          "clubMembershipId": "13AA2B330FA54EF0A65CC7EF06C709CB",
+          "profile": {
+            "contactMethod": "app",
+            "id": "FB686CB1C8AFF8C18FE94E58AE041676",
+            "firstName": "Bruno",
+            "lastName": "Falcone",
+            "unableToReach": false
+          },
+          "firstName": "Bruno",
+          "lastName": "Falcone",
+          "createdTime": "2026-05-29T10:25:58Z",
+          "guardians": [],
+          "subGroups": [
+            "C7A93464DB0E411180C603F831A960A5"
+          ],
+          "roles": [
+            "26643BEA070749D792B93C08487DE7A8"
+          ],
+          "fields": {
+            "2B2750AA5F65467A99E3E83B93153E00": 5,
+            "57D2266300294609BA90B85C5F0E3E89": 4,
+            "6985006C9EDE499F9219136BF17A49BA": 2,
+            "74806AEFD38C450A99707C92BF5CD0A3": 1,
+            "7B62F5178AF94D089AC7C5AA07E66F73": 3
+          },
+          "respondent": true
+        },
+        {
+          "id": "917B6508583242EBA74DE3AEA4EC53F3",
+          "clubMembershipId": "DF074CB0B6DC483FB0F7E2316C6E295D",
+          "profile": {
+            "contactMethod": "app",
+            "id": "D307E232076A35BF38EBABAA614F7962",
+            "firstName": "Tarik",
+            "lastName": "Gulec",
+            "unableToReach": false
+          },
+          "firstName": "Tarik",
+          "lastName": "Gulec",
+          "createdTime": "2025-11-26T17:39:13Z",
+          "guardians": [],
+          "subGroups": [
+            "C7A93464DB0E411180C603F831A960A5"
+          ],
+          "fields": {
+            "2B2750AA5F65467A99E3E83B93153E00": 5,
+            "57D2266300294609BA90B85C5F0E3E89": 4,
+            "6985006C9EDE499F9219136BF17A49BA": 2,
+            "74806AEFD38C450A99707C92BF5CD0A3": 1,
+            "7B62F5178AF94D089AC7C5AA07E66F73": 3
+          },
+          "respondent": true
+        },
+        {
+          "id": "71DA2CC0F34243B19C879F1989DDA813",
+          "clubMembershipId": "FF39F9AB137F42F9B1861A156E7D9311",
+          "profile": {
+            "contactMethod": "app",
+            "id": "9B34EC1077189012E7827F8DC477A818",
+            "firstName": "Seb",
+            "lastName": "Roque",
+            "unableToReach": false
+          },
+          "firstName": "Seb",
+          "lastName": "Roque",
+          "createdTime": "2026-11-03T22:03:12Z",
+          "guardians": [],
+          "subGroups": [
+            "C7A93464DB0E411180C603F831A960A5"
+          ],
+          "fields": {
+            "2B2750AA5F65467A99E3E83B93153E00": 4,
+            "57D2266300294609BA90B85C5F0E3E89": 3,
+            "6985006C9EDE499F9219136BF17A49BA": 1,
+            "74806AEFD38C450A99707C92BF5CD0A3": 2,
+            "7B62F5178AF94D089AC7C5AA07E66F73": 5
+          },
+          "respondent": true
+        },
+        {
+          "id": "3A391CD2CD664F0880B57FA1CA1CCC7D",
+          "clubMembershipId": "D285F04E8FBA421293730D7523492A75",
+          "profile": {
+            "contactMethod": "app",
+            "id": "8667DCC69B38EF9F5785D5AC54A89932",
+            "firstName": "Gabriel",
+            "lastName": "Branzei",
+            "unableToReach": false
+          },
+          "firstName": "Gabriel",
+          "lastName": "Branzei",
+          "createdTime": "2024-11-28T15:34:31Z",
+          "guardians": [],
+          "subGroups": [
+            "C7A93464DB0E411180C603F831A960A5"
+          ],
+          "fields": {
+            "2B2750AA5F65467A99E3E83B93153E00": 3,
+            "57D2266300294609BA90B85C5F0E3E89": 5,
+            "6985006C9EDE499F9219136BF17A49BA": 4,
+            "74806AEFD38C450A99707C92BF5CD0A3": 1,
+            "7B62F5178AF94D089AC7C5AA07E66F73": 2
+          },
+          "respondent": true
+        }
+      ],
+      "players": {
+        "Bruno Falcone": {
+          "outside": 1,
+          "opposite": 2,
+          "libero": 3,
+          "middle": 4,
+          "setter": 5
+        },
+        "Tarik Gulec": {
+          "outside": 1,
+          "opposite": 2,
+          "libero": 3,
+          "middle": 4,
+          "setter": 5
+        },
+        "Seb Roque": {
+          "opposite": 1,
+          "outside": 2,
+          "middle": 3,
+          "setter": 4,
+          "libero": 5
+        },
+        "Gabriel Branzei": {
+          "outside": 1,
+          "libero": 2,
+          "setter": 3,
+          "opposite": 4,
+          "middle": 5
         }
       }
     }

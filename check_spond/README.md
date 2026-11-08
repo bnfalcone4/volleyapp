@@ -26,6 +26,8 @@ streamlit run check_spond/app.py -- --from-json
 
 The offline Streamlit mode still uses the app password, but does not require
 Spond credentials. Select the event you want from the event picker.
+Events are ordered with today's and future events first in ascending UTC date
+and time, followed by past events with the most recent first.
 
 Edit `.streamlit/secrets.toml` to set a separate app password and Spond
 credentials before running Streamlit:
