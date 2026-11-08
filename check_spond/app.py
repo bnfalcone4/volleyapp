@@ -279,7 +279,7 @@ def edit_position_limits(mode, event, defaults, player_count, streamlit):
                     max_value=minimum_maximum,
                     step=1,
                     key=minimum_key,
-                    width=120,
+                    width=150, #120 shows +/- in desktop but not android
                     label_visibility='collapsed',
                 )
                 limits[position][0] = minimum
@@ -293,7 +293,7 @@ def edit_position_limits(mode, event, defaults, player_count, streamlit):
                     max_value=player_count,
                     step=1,
                     key=maximum_key,
-                    width=120,
+                    width=150,
                     label_visibility='collapsed',
                 )
                 limits[position][1] = maximum
