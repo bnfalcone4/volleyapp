@@ -16,6 +16,28 @@ from pathlib import Path
 
 ASSIGNMENT_MODES = ('ranked', 'flexible', 'optimized', 'strict')
 MIN_PLAYERS_FOR_FLEXIBLE_ASSIGNMENT = 12
+POSITION_LABELS = {
+    'setter': 'Setter',
+    'middle': 'Middle',
+    'outside': 'Outside',
+    'opposite': 'Oppo',
+    'libero': 'Lib',
+    'unknown': 'Unknown',
+}
+POSITION_PLURAL_LABELS = {
+    'setter': 'Setters',
+    'middle': 'Middles',
+    'outside': 'Outsides',
+    'opposite': 'Oppos',
+    'libero': 'Libs',
+    'unknown': 'Unknown',
+}
+
+
+def position_label(position, plural=False):
+    """Return a consistent display label without changing the position key."""
+    labels = POSITION_PLURAL_LABELS if plural else POSITION_LABELS
+    return labels.get(position, position.title())
 
 
 def load_fetch_module():
@@ -173,16 +195,6 @@ def calculate_assignments(
     raise ValueError(f'Unsupported assignment mode: {mode}.')
 
 
-def adjust_position_limit(key, delta, minimum, maximum):
-    """Increment or decrement one position limit within its feasible range."""
-    import streamlit as st
-
-    st.session_state[key] = min(
-        maximum,
-        max(minimum, st.session_state[key] + delta),
-    )
-
-
 def edit_position_limits(mode, event, defaults, player_count, streamlit):
     """Render feasible position limits for one assignment mode."""
     limits = {}
@@ -222,7 +234,7 @@ def edit_position_limits(mode, event, defaults, player_count, streamlit):
         values[1] += max(0, increase)
         maximum_total += max(0, increase)
 
-    with streamlit.expander('Adjust position limits'):
+    with streamlit.expander('Adjust min/max position limits'):
         streamlit.caption(
             f'{player_count} active players (excluding the waitlist). '
             'Minimum and maximum totals must accommodate them.'
@@ -256,56 +268,35 @@ def edit_position_limits(mode, event, defaults, player_count, streamlit):
                 vertical_alignment='center',
                 gap='small',
             ):
-                streamlit.text(position.title(), width='content')
-                streamlit.text('Min', width='content')
-                streamlit.button(
-                    '-',
-                    key=f'{minimum_key}:decrement',
-                    help=f'Decrease {position} minimum',
-                    width='content',
-                    on_click=adjust_position_limit,
-                    args=(minimum_key, -1, 0, minimum_maximum),
+                streamlit.markdown(
+                    f'**{position_label(position, plural=True)}:**',
+                    width=96,
+                    wrap=False,
                 )
-                streamlit.text(str(minimum), width='content')
-                streamlit.button(
-                    '+',
-                    key=f'{minimum_key}:increment',
-                    help=f'Increase {position} minimum',
-                    width='content',
-                    on_click=adjust_position_limit,
-                    args=(minimum_key, 1, 0, minimum_maximum),
+                minimum = streamlit.number_input(
+                    'Min',
+                    min_value=0,
+                    max_value=minimum_maximum,
+                    step=1,
+                    key=minimum_key,
+                    width=150,
+                    label_visibility='collapsed',
                 )
-                streamlit.text('Max', width='content')
-                streamlit.button(
-                    '-',
-                    key=f'{maximum_key}:decrement',
-                    help=f'Decrease {position} maximum',
-                    width='content',
-                    on_click=adjust_position_limit,
-                    args=(
-                        maximum_key,
-                        -1,
-                        maximum_minimum,
-                        player_count,
-                    ),
+                limits[position][0] = minimum
+                maximum_minimum = max(
+                    minimum,
+                    player_count - other_maximums,
                 )
-                streamlit.text(str(maximum), width='content')
-                streamlit.button(
-                    '+',
-                    key=f'{maximum_key}:increment',
-                    help=f'Increase {position} maximum',
-                    width='content',
-                    on_click=adjust_position_limit,
-                    args=(
-                        maximum_key,
-                        1,
-                        maximum_minimum,
-                        player_count,
-                    ),
+                maximum = streamlit.number_input(
+                    'Max',
+                    min_value=maximum_minimum,
+                    max_value=player_count,
+                    step=1,
+                    key=maximum_key,
+                    width=150,
+                    label_visibility='collapsed',
                 )
-
-            limits[position][0] = minimum
-            limits[position][1] = maximum
+                limits[position][1] = maximum
 
     return {
         position: (minimum, maximum)
@@ -440,11 +431,11 @@ def display_assignments(
     markdown = streamlit.markdown if streamlit else print
     if visualization == 'positions':
         position_sections = (
-            ('setter', 'Setters', '👐'),
-            ('middle', 'Middles', '🙌'),
-            ('outside', 'Outsides', '🤚'),
-            ('opposite', 'Oppos', '✋'),
-            ('libero', 'Libs', '👊'),
+            ('setter', position_label('setter', plural=True), '👐'),
+            ('middle', position_label('middle', plural=True), '🙌'),
+            ('outside', position_label('outside', plural=True), '🤚'),
+            ('opposite', position_label('opposite', plural=True), '✋'),
+            ('libero', position_label('libero', plural=True), '👊'),
         )
         assignments_by_position = {
             position: [] for position, _, _ in position_sections
@@ -490,7 +481,10 @@ def display_assignments(
             first_name = first_name_label(full_name, counts, seen)
             rank_text = f' (rank {rank})' if rank is not None else ''
             separator = ' — ' if streamlit else ' - '
-            write(f'{index}. {first_name}{separator}{position}{rank_text}')
+            write(
+                f'{index}. {first_name}{separator}'
+                f'{position_label(position)}{rank_text}'
+            )
 
         markdown('**Waiting list**' if streamlit else 'Waiting list:')
         assigned_names = {name for name, _, _ in assignments}
@@ -502,7 +496,11 @@ def display_assignments(
         if actual_waiting:
             for full_name, preferences in actual_waiting:
                 first_name = first_name_label(full_name, counts, seen)
-                preference_text = f' — {", ".join(preferences)}' if preferences else ''
+                preference_text = (
+                    f' — {", ".join(position_label(position) for position in preferences)}'
+                    if preferences
+                    else ''
+                )
                 write(f'{first_name}{preference_text}')
         else:
             write('Nobody waiting.')
@@ -512,14 +510,19 @@ def display_assignments(
         markdown('**Cascade:**' if streamlit else 'Cascade:')
         for full_name, improvements in cascade:
             name = first_name_label(full_name, counts, seen)
-            positions = ', '.join(position for position, _ in improvements)
+            positions = ', '.join(
+                position_label(position) for position, _ in improvements
+            )
             write(f'{name} — {positions}')
 
     write('')
     markdown('**Position totals:**' if streamlit else 'Position totals:')
     for position, (minimum, maximum) in limits.items():
         total = sum(row[1] == position for row in assignments)
-        write(f'{position}: {total} (min {minimum}, max {maximum})')
+        write(
+            f'{position_label(position, plural=True)}: {total} '
+            f'(min {minimum}, max {maximum})'
+        )
 
     write('')
     rank_totals, rank_total = assignment_module.preference_rank_totals(assignments)
