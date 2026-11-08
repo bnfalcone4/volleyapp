@@ -234,11 +234,21 @@ def edit_position_limits(mode, event, defaults, player_count, streamlit):
         values[1] += max(0, increase)
         maximum_total += max(0, increase)
 
-    with streamlit.expander('Adjust min/max position limits'):
+    with streamlit.expander('Adjust position limits'):
         streamlit.caption(
             f'{player_count} active players (excluding the waitlist). '
             'Minimum and maximum totals must accommodate them.'
         )
+        with streamlit.container(
+            horizontal=True,
+            wrap=False,
+            vertical_alignment='center',
+            gap='small',
+        ):
+            streamlit.text('', width=96)
+            streamlit.text('Min', width=150, text_alignment='center')
+            streamlit.text('Max', width=150, text_alignment='center')
+
         for position, values in limits.items():
             minimum_key = (
                 f'position_limit_widget:{event_id}:'
