@@ -412,6 +412,7 @@ def display_assignments(
     streamlit=None,
     visualization='positions',
     cascade=(),
+    show_totals=True,
 ):
     """Render assignments in position or signup order, plus assignment totals.
 
@@ -427,6 +428,7 @@ def display_assignments(
         visualization: ``positions`` to group by position or ``order`` to list
             assignments in signup order.
         cascade: Assigned players and their blocked, better-ranked positions.
+        show_totals: Whether to render position and preference-rank totals.
 
     Returns:
         None. Writes the result to Streamlit or standard output.
@@ -525,26 +527,27 @@ def display_assignments(
             )
             write(f'{name} — {positions}')
 
-    write('')
-    markdown('**Position totals:**' if streamlit else 'Position totals:')
-    for position, (minimum, maximum) in limits.items():
-        total = sum(row[1] == position for row in assignments)
-        write(
-            f'{position_label(position, plural=True)}: {total} '
-            f'(min {minimum}, max {maximum})'
-        )
+    if show_totals:
+        write('')
+        markdown('**Position totals:**' if streamlit else 'Position totals:')
+        for position, (minimum, maximum) in limits.items():
+            total = sum(row[1] == position for row in assignments)
+            write(
+                f'{position_label(position, plural=True)}: {total} '
+                f'(min {minimum}, max {maximum})'
+            )
 
-    write('')
-    rank_totals, rank_total = assignment_module.preference_rank_totals(assignments)
-    markdown('**Preference rank totals:**' if streamlit else 'Preference rank totals:')
-    for rank, total in rank_totals.items():
-        write(f'Rank {rank}: {total}')
-    write(f'Total: {rank_total}')
-    ranked_player_count = sum(rank_totals.values())
-    average_rank = (
-        rank_total / ranked_player_count if ranked_player_count else 0
-    )
-    write(f'Average: {average_rank:.2f}')
+        write('')
+        rank_totals, rank_total = assignment_module.preference_rank_totals(assignments)
+        markdown('**Preference rank totals:**' if streamlit else 'Preference rank totals:')
+        for rank, total in rank_totals.items():
+            write(f'Rank {rank}: {total}')
+        write(f'Total: {rank_total}')
+        ranked_player_count = sum(rank_totals.values())
+        average_rank = (
+            rank_total / ranked_player_count if ranked_player_count else 0
+        )
+        write(f'Average: {average_rank:.2f}')
 
 
 def edit_event_attendance(
@@ -574,17 +577,19 @@ def edit_event_attendance(
     selected_players = {}
     if event_capacity is None:
         event_capacity = assignment_module.EVENT_CAPACITY
+    attendance_key_prefix = f'attendance:{event.get("id", "event")}:'
+    for index, name in enumerate(players):
+        key = f'{attendance_key_prefix}{name}'
+        if key not in streamlit.session_state:
+            streamlit.session_state[key] = index < event_capacity
+
     with streamlit.expander('Edit attendance'):
         streamlit.caption(
             'Checked players are attending. Players beyond event capacity '
             'start unchecked. Assignments update when attendance changes.'
         )
-        for index, (name, preferences) in enumerate(players.items()):
-            key = f'attendance:{event.get("id", "event")}:{name}'
-            if key not in streamlit.session_state:
-                streamlit.session_state[key] = (
-                    index < event_capacity
-                )
+        for name, preferences in players.items():
+            key = f'{attendance_key_prefix}{name}'
             if streamlit.checkbox(name, key=key):
                 selected_players[name] = preferences
         streamlit.caption(
@@ -610,6 +615,7 @@ def display_event(event, assignment_module, streamlit=None):
     players = assignment_module.normalize_player_preferences(event['players'])
     signup_players = players
     if streamlit:
+        advanced_mode = streamlit.session_state.get('advanced_mode', False)
         capacity_key = f'player_cap:{event.get("id", "event")}'
         spond_capacity = event.get('maxAccepted')
         if spond_capacity is None:
@@ -625,14 +631,21 @@ def display_event(event, assignment_module, streamlit=None):
             )
         if capacity_key not in streamlit.session_state:
             streamlit.session_state[capacity_key] = spond_capacity
-        event_capacity = streamlit.session_state[capacity_key]
-        players = edit_event_attendance(
-            event,
-            players,
-            assignment_module,
-            streamlit,
-            event_capacity,
+        event_capacity = (
+            streamlit.session_state[capacity_key]
+            if advanced_mode
+            else spond_capacity
         )
+        attendance_key_prefix = f'attendance:{event.get("id", "event")}:'
+        for index, name in enumerate(players):
+            key = f'{attendance_key_prefix}{name}'
+            if key not in streamlit.session_state:
+                streamlit.session_state[key] = index < event_capacity
+        players = {
+            name: preferences
+            for name, preferences in players.items()
+            if streamlit.session_state[f'{attendance_key_prefix}{name}']
+        }
     else:
         event_capacity = assignment_module.EVENT_CAPACITY
     signup_count = len(players)
@@ -644,8 +657,6 @@ def display_event(event, assignment_module, streamlit=None):
     date_line = f'{start:%Y-%m-%d} · {start:%H:%M}–{end:%H:%M} UTC'
 
     if streamlit:
-        streamlit.subheader(title)
-        streamlit.caption(date_line)
         attending_count = min(len(players), event_capacity)
         waiting_count = max(0, len(players) - event_capacity)
         absent_count = len(signup_players) - len(players)
@@ -656,6 +667,18 @@ def display_event(event, assignment_module, streamlit=None):
         if absent_count:
             summary += f'  \nAbsent: {absent_count}'
         streamlit.markdown(summary)
+        players = edit_event_attendance(
+            event,
+            signup_players,
+            assignment_module,
+            streamlit,
+            event_capacity,
+        )
+        signup_count = len(players)
+        streamlit.checkbox(
+            'Advanced mode',
+            key='advanced_mode',
+        )
         visualization_key = f'list_visualization:{event.get("id", "event")}'
         visualization = streamlit.session_state.get(
             visualization_key,
@@ -672,8 +695,9 @@ def display_event(event, assignment_module, streamlit=None):
             'flexible': 'First come first based with flexible position limits',
             'optimized': "Optimized to maximize players' preferences",
         }
-        tabs = streamlit.tabs([mode.title() for mode in ASSIGNMENT_MODES])
-        for mode, tab in zip(ASSIGNMENT_MODES, tabs):
+        visible_modes = ASSIGNMENT_MODES if advanced_mode else ('ranked',)
+        tabs = streamlit.tabs([mode.title() for mode in visible_modes])
+        for mode, tab in zip(visible_modes, tabs):
             with tab:
                 streamlit.caption(mode_descriptions[mode])
                 if (
@@ -727,36 +751,38 @@ def display_event(event, assignment_module, streamlit=None):
                     visualization=visualization,
                     cascade=(
                         cascade_rows(assignments, limits, players)
-                        if show_cascade
+                        if advanced_mode and show_cascade
                         else ()
                     ),
+                    show_totals=advanced_mode,
                 )
-        streamlit.markdown('**Visualize by:**')
-        streamlit.radio(
-            'Visualize by',
-            ('positions', 'order'),
-            format_func=str.title,
-            horizontal=True,
-            label_visibility='collapsed',
-            key=visualization_key,
-        )
-        streamlit.markdown('**Show cascade:**')
-        streamlit.radio(
-            'Show cascade',
-            ('no', 'yes'),
-            format_func=str.title,
-            horizontal=True,
-            label_visibility='collapsed',
-            key=cascade_key,
-        )
-        streamlit.markdown('**Player cap:**')
-        streamlit.number_input(
-            'Player cap',
-            min_value=1,
-            step=1,
-            label_visibility='collapsed',
-            key=capacity_key,
-        )
+        if advanced_mode:
+            streamlit.markdown('**Visualize by:**')
+            streamlit.radio(
+                'Visualize by',
+                ('positions', 'order'),
+                format_func=str.title,
+                horizontal=True,
+                label_visibility='collapsed',
+                key=visualization_key,
+            )
+            streamlit.markdown('**Show cascade:**')
+            streamlit.radio(
+                'Show cascade',
+                ('no', 'yes'),
+                format_func=str.title,
+                horizontal=True,
+                label_visibility='collapsed',
+                key=cascade_key,
+            )
+            streamlit.markdown('**Player cap:**')
+            streamlit.number_input(
+                'Player cap',
+                min_value=1,
+                step=1,
+                label_visibility='collapsed',
+                key=capacity_key,
+            )
         return
 
     print(f'\n{title}')
@@ -843,11 +869,6 @@ def streamlit_main(from_json=False):
     fetch_module = load_fetch_module()
     st.set_page_config(page_title='VolleyApp', page_icon='🏐')
     st.title('VolleyApp 🏐')
-    st.write(
-        'Event assignments from saved JSON data.'
-        if from_json
-        else 'Upcoming open events and position assignments from live Spond data.'
-    )
 
     try:
         configured = st.secrets
@@ -939,6 +960,7 @@ def streamlit_main(from_json=False):
         'Event',
         range(len(events)),
         format_func=lambda index: event_label(events[index]),
+        label_visibility='collapsed',
     )
     assignment_module = load_assignment_module()
     display_event(events[selected_index], assignment_module, streamlit=st)
